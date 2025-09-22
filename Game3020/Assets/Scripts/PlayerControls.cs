@@ -8,11 +8,6 @@ public class PlayerControls : MonoBehaviour
     public float jumpForce = 10f;
     public float rotationSpeed = 180f;
 
-    [Header("Ground Check")]
-    public Transform groundCheck;
-    public float groundDistance = 0.4f;
-    public LayerMask groundMask = 1; 
-
     private Rigidbody rb;
     public bool isGrounded;
     private Vector2 moveInput;
@@ -21,18 +16,12 @@ public class PlayerControls : MonoBehaviour
     {
         rb = GetComponent<Rigidbody>();
 
-        if (groundCheck == null)
-        {
-            GameObject groundCheckObj = new GameObject("GroundCheck");
-            groundCheckObj.transform.SetParent(transform);
-            groundCheckObj.transform.localPosition = new Vector3(0, -1f, 0);
-            groundCheck = groundCheckObj.transform;
-        }
+        
     }
 
     void Update()
     {
-        isGrounded = Physics.CheckSphere(groundCheck.position, groundDistance, groundMask);
+        
     }
 
     void FixedUpdate()
@@ -52,6 +41,22 @@ public class PlayerControls : MonoBehaviour
             float targetAngle = Mathf.Atan2(direction.x, direction.z) * Mathf.Rad2Deg;
             float angle = Mathf.MoveTowardsAngle(transform.eulerAngles.y, targetAngle, rotationSpeed * Time.fixedDeltaTime);
             transform.rotation = Quaternion.AngleAxis(angle, Vector3.up);
+        }
+    }
+
+    void OnTriggerEnter(Collider other)
+    {
+        if (other.CompareTag("Ground"))
+        {
+            isGrounded = true;
+        }
+    }
+
+    private void OnTriggerExit(Collider other)
+    {
+        if (other.CompareTag("Ground"))
+        {
+            isGrounded = false;
         }
     }
 
