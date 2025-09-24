@@ -6,10 +6,7 @@ public class EnemyBehavior : MonoBehaviour
 
     void Update()
     {
-        if (hitCount == 5)
-        {
-            Destroy(gameObject);
-        }
+       
     }
 
     private void OnTriggerEnter(Collider other)
@@ -17,6 +14,10 @@ public class EnemyBehavior : MonoBehaviour
         if (other.CompareTag("Attack"))
         {
             hitCount++;
+        }
+        if (hitCount >= 5)
+        {
+            Destroy(gameObject);
         }
     }
 }
