@@ -8,7 +8,6 @@ public class PlayerControls : MonoBehaviour
     [SerializeField] private float moveSpeed = 10f;
     [SerializeField] private float jumpForce = 8f;
     [SerializeField] private float rotationSpeed = 180f;
-    [SerializeField] private float walkSpeed = 20f;
 
     [Header("Camera")]
     public CinemachineCamera freeLookCamera;
@@ -25,7 +24,7 @@ public class PlayerControls : MonoBehaviour
     [Header("Wall Running")]
     [SerializeField] private LayerMask whatIsWallrunnable = -1;
     [SerializeField] private float wallRunGravity = 1f;
-    [SerializeField] private float jumpCooldown = 0.1f; // Reduced for better responsiveness
+    [SerializeField] private float jumpCooldown = 0.1f; // reduced for better responsiveness;
     [SerializeField] private float wallRunForceMultiplier = 100f;
 
     private Rigidbody rb;
@@ -36,7 +35,6 @@ public class PlayerControls : MonoBehaviour
     public bool wallRunning = false;
     public bool readyToWallrun = true;
     public bool readyToJump = true;
-    private bool cancelling = false;
     private bool cancellingWall = false;
     private Vector3 wallNormalVector;
 
@@ -51,8 +49,21 @@ public class PlayerControls : MonoBehaviour
 
     void Update()
     {
-        CheckGrounded(); // Added ground check
-        // Removed FindWallRunRotation() call
+        CheckGrounded();
+
+        if (Keyboard.current.escapeKey.wasPressedThisFrame)
+        {
+            QuitApplication();
+        }
+    }
+
+    void QuitApplication()
+    {
+        #if UNITY_EDITOR
+        UnityEditor.EditorApplication.isPlaying = false;
+        #else
+            Application.Quit();
+        #endif
     }
 
     void FixedUpdate()
@@ -61,10 +72,10 @@ public class PlayerControls : MonoBehaviour
         WallRunning();
     }
 
-    // New improved ground detection method
+    // my new and improved ground detection method;
     private void CheckGrounded()
     {
-        // Cast multiple rays for better ground detection
+        // it will cast multiple rays for better ground detection;
         Vector3[] checkPositions = {
             transform.position,
             transform.position + Vector3.forward * 0.3f,
@@ -105,18 +116,15 @@ public class PlayerControls : MonoBehaviour
 
             float movementMultiplier = 1f;
             if (!isGrounded) movementMultiplier = 0.5f;
-            if (wallRunning) movementMultiplier = 1.5f; // 20 × 1.5 = 30 speed for wall running
+            if (wallRunning) movementMultiplier = 1.5f; // 20 × 1.5 = 30 speed for wall running;
 
-            // Use velocity-based movement instead of MovePosition to allow jumping
             Vector3 targetVelocity = moveDirection * moveSpeed * movementMultiplier;
 
-            // Preserve Y velocity to not interfere with jumping/falling
             Vector3 currentVelocity = rb.linearVelocity;
             rb.linearVelocity = new Vector3(targetVelocity.x, currentVelocity.y, targetVelocity.z);
         }
         else
         {
-            // Stop horizontal movement when no input, but preserve Y velocity
             Vector3 currentVelocity = rb.linearVelocity;
             rb.linearVelocity = new Vector3(0f, currentVelocity.y, 0f);
         }
@@ -247,18 +255,16 @@ public class PlayerControls : MonoBehaviour
 
     public void OnJump(InputValue value)
     {
-        // Added debug logging to help diagnose jump issues
+        // i added debug logging to help diagnose jump issues;
         Debug.Log($"Jump input: {value.isPressed}, Grounded: {isGrounded}, Ready: {readyToJump}, WallRunning: {wallRunning}");
 
         if (value.isPressed && (isGrounded || wallRunning) && readyToJump)
         {
             readyToJump = false;
 
-            // Clear Y velocity before jumping to ensure consistent jump height
             Vector3 velocity = rb.linearVelocity;
             rb.linearVelocity = new Vector3(velocity.x, 0f, velocity.z);
 
-            // Apply jump force
             rb.AddForce(Vector3.up * jumpForce, ForceMode.Impulse);
 
             if (wallRunning)
@@ -283,6 +289,7 @@ public class PlayerControls : MonoBehaviour
             PerformMeleeAttack();
         }
     }
+
 
     void OnDrawGizmosSelected()
     {
