@@ -8,6 +8,7 @@ public class PlayerControls : MonoBehaviour
     [SerializeField] private float moveSpeed = 10f;
     [SerializeField] private float jumpForce = 8f;
     [SerializeField] private float rotationSpeed = 180f;
+    [SerializeField] private float walkSpeed = 20f;
 
     [Header("Camera")]
     public CinemachineCamera freeLookCamera;
@@ -17,52 +18,113 @@ public class PlayerControls : MonoBehaviour
     [SerializeField] private float attackCooldown = 1f;
     [SerializeField] private GameObject attackEffect;
 
+    [Header("Ground Check")]
+    [SerializeField] private float groundCheckDistance = 1.1f;
+    [SerializeField] private LayerMask groundLayer = 1;
+
+    [Header("Wall Running")]
+    [SerializeField] private LayerMask whatIsWallrunnable = -1;
+    [SerializeField] private float wallRunGravity = 1f;
+    [SerializeField] private float jumpCooldown = 0.1f; // Reduced for better responsiveness
+    [SerializeField] private float wallRunForceMultiplier = 100f;
+
     private Rigidbody rb;
-    private bool isGrounded;
+    public bool isGrounded;
     private Vector2 moveInput;
     private float lastAttackTime;
+
+    public bool wallRunning = false;
+    public bool readyToWallrun = true;
+    public bool readyToJump = true;
+    private bool cancelling = false;
+    private bool cancellingWall = false;
+    private Vector3 wallNormalVector;
 
     void Start()
     {
         rb = GetComponent<Rigidbody>();
+        wallNormalVector = Vector3.up;
 
         Cursor.visible = false;
         Cursor.lockState = CursorLockMode.Locked;
     }
 
+    void Update()
+    {
+        CheckGrounded(); // Added ground check
+        // Removed FindWallRunRotation() call
+    }
+
     void FixedUpdate()
     {
         Move();
+        WallRunning();
+    }
+
+    // New improved ground detection method
+    private void CheckGrounded()
+    {
+        // Cast multiple rays for better ground detection
+        Vector3[] checkPositions = {
+            transform.position,
+            transform.position + Vector3.forward * 0.3f,
+            transform.position + Vector3.back * 0.3f,
+            transform.position + Vector3.left * 0.3f,
+            transform.position + Vector3.right * 0.3f
+        };
+
+        isGrounded = false;
+        foreach (Vector3 pos in checkPositions)
+        {
+            if (Physics.Raycast(pos, Vector3.down, groundCheckDistance, groundLayer))
+            {
+                isGrounded = true;
+                readyToJump = true;
+                if (wallRunning)
+                {
+                    wallRunning = false;
+                }
+                break;
+            }
+        }
     }
 
     void Move()
     {
         if (moveInput.magnitude >= 0.1f)
         {
-            // lets get camera's forward and right directions (ignore Y component for ground movement);
             Vector3 cameraForwards = freeLookCamera.transform.forward;
             Vector3 cameraRight = freeLookCamera.transform.right;
 
-            // this is how we project camera directions onto the horizontal plane;
             cameraForwards.y = 0f;
             cameraRight.y = 0f;
             cameraForwards.Normalize();
             cameraRight.Normalize();
 
-            // we calculate movement direction relative to camera (aka we move in the direction of camera);
             Vector3 moveDirection = (cameraRight * moveInput.x + cameraForwards * moveInput.y).normalized;
 
-            // apply the actual movement using physics;
-            Vector3 movement = moveDirection * moveSpeed * Time.fixedDeltaTime;
-            rb.MovePosition(transform.position + movement);
+            float movementMultiplier = 1f;
+            if (!isGrounded) movementMultiplier = 0.5f;
+            if (wallRunning) movementMultiplier = 1.5f; // 20 × 1.5 = 30 speed for wall running
+
+            // Use velocity-based movement instead of MovePosition to allow jumping
+            Vector3 targetVelocity = moveDirection * moveSpeed * movementMultiplier;
+
+            // Preserve Y velocity to not interfere with jumping/falling
+            Vector3 currentVelocity = rb.linearVelocity;
+            rb.linearVelocity = new Vector3(targetVelocity.x, currentVelocity.y, targetVelocity.z);
+        }
+        else
+        {
+            // Stop horizontal movement when no input, but preserve Y velocity
+            Vector3 currentVelocity = rb.linearVelocity;
+            rb.linearVelocity = new Vector3(0f, currentVelocity.y, 0f);
         }
 
-        // with this i always face the camera direction (independent of movement);
         Vector3 cameraForward = freeLookCamera.transform.forward;
         cameraForward.y = 0f;
         cameraForward.Normalize();
 
-        // we get smooth rotation towards camera direction;
         if (cameraForward.magnitude >= 0.1f)
         {
             float targetAngle = Mathf.Atan2(cameraForward.x, cameraForward.z) * Mathf.Rad2Deg;
@@ -71,9 +133,53 @@ public class PlayerControls : MonoBehaviour
         }
     }
 
+    void WallRunning()
+    {
+        if (wallRunning)
+        {
+            rb.AddForce(-wallNormalVector * Time.deltaTime * moveSpeed);
+            rb.AddForce(Vector3.up * Time.deltaTime * rb.mass * wallRunForceMultiplier * wallRunGravity);
+        }
+    }
+
+    private void CancelWallrun()
+    {
+        Debug.Log("Wall run cancelled");
+        Invoke("GetReadyToWallrun", 0.1f);
+        rb.AddForce(wallNormalVector * 600f);
+        readyToWallrun = false;
+        wallRunning = false;
+    }
+
+    private void GetReadyToWallrun()
+    {
+        readyToWallrun = true;
+    }
+
+    private void StartWallRun(Vector3 normal)
+    {
+        if (!isGrounded && readyToWallrun)
+        {
+            wallNormalVector = normal;
+
+            if (!wallRunning)
+            {
+                rb.linearVelocity = new Vector3(rb.linearVelocity.x, 0f, rb.linearVelocity.z);
+                rb.AddForce(Vector3.up * 20f, ForceMode.Impulse);
+            }
+
+            wallRunning = true;
+            Debug.Log("Started wall running");
+        }
+    }
+
+    private bool IsWall(Vector3 normal)
+    {
+        return Mathf.Abs(90f - Vector3.Angle(Vector3.up, normal)) < 0.1f;
+    }
+
     void PerformMeleeAttack()
     {
-        // this is a check if we can attack (cooldown system);
         if (Time.time < lastAttackTime + attackCooldown)
             return;
 
@@ -83,7 +189,6 @@ public class PlayerControls : MonoBehaviour
         {
             Vector3 effectPosition = transform.position + transform.forward * attackRange;
             GameObject effect = Instantiate(attackEffect, effectPosition, transform.rotation);
-            // clean up the effect after 2 seconds;
             Destroy(effect, 2f);
         }
 
@@ -92,18 +197,47 @@ public class PlayerControls : MonoBehaviour
 
     void OnTriggerEnter(Collider other)
     {
-        if (other.CompareTag("Ground"))
+        if (other.CompareTag("Respawn"))
         {
-            isGrounded = true;
+            transform.position = new Vector3(0, 2, -5);
         }
     }
 
-    private void OnTriggerExit(Collider other)
+    private void OnCollisionStay(Collision collision)
     {
-        if (other.CompareTag("Ground"))
+        int layer = collision.gameObject.layer;
+
+        if ((whatIsWallrunnable.value & (1 << layer)) == 0)
+            return;
+
+        for (int i = 0; i < collision.contactCount; i++)
         {
-            isGrounded = false;
+            Vector3 normal = collision.contacts[i].normal;
+
+            if (IsWall(normal))
+            {
+                StartWallRun(normal);
+                cancellingWall = false;
+                CancelInvoke("StopWall");
+            }
         }
+
+        if (!cancellingWall)
+        {
+            cancellingWall = true;
+            Invoke("StopWall", Time.deltaTime * 3f);
+        }
+    }
+
+    private void StopWall()
+    {
+        wallRunning = false;
+        cancellingWall = false;
+    }
+
+    private void ResetJump()
+    {
+        readyToJump = true;
     }
 
     public void OnMove(InputValue value)
@@ -113,9 +247,32 @@ public class PlayerControls : MonoBehaviour
 
     public void OnJump(InputValue value)
     {
-        if (value.isPressed && isGrounded)
+        // Added debug logging to help diagnose jump issues
+        Debug.Log($"Jump input: {value.isPressed}, Grounded: {isGrounded}, Ready: {readyToJump}, WallRunning: {wallRunning}");
+
+        if (value.isPressed && (isGrounded || wallRunning) && readyToJump)
         {
-            rb.linearVelocity = new Vector3(rb.linearVelocity.x, jumpForce, rb.linearVelocity.z);
+            readyToJump = false;
+
+            // Clear Y velocity before jumping to ensure consistent jump height
+            Vector3 velocity = rb.linearVelocity;
+            rb.linearVelocity = new Vector3(velocity.x, 0f, velocity.z);
+
+            // Apply jump force
+            rb.AddForce(Vector3.up * jumpForce, ForceMode.Impulse);
+
+            if (wallRunning)
+            {
+                rb.AddForce(wallNormalVector * jumpForce * 3f, ForceMode.Impulse);
+                wallRunning = false;
+                Debug.Log("Wall jump performed");
+            }
+            else
+            {
+                Debug.Log("Ground jump performed");
+            }
+
+            Invoke("ResetJump", jumpCooldown);
         }
     }
 
@@ -129,9 +286,29 @@ public class PlayerControls : MonoBehaviour
 
     void OnDrawGizmosSelected()
     {
-        // i needed a visual debug for attack range in scene view;
         Gizmos.color = Color.red;
         Vector3 attackPosition = transform.position + transform.forward * (attackRange * 0.5f);
         Gizmos.DrawWireSphere(attackPosition, attackRange);
+
+        if (wallRunning)
+        {
+            Gizmos.color = Color.blue;
+            Gizmos.DrawRay(transform.position, wallNormalVector * 2f);
+        }
+
+        // Draw ground check rays for debugging
+        Gizmos.color = isGrounded ? Color.green : Color.red;
+        Vector3[] checkPositions = {
+            transform.position,
+            transform.position + Vector3.forward * 0.3f,
+            transform.position + Vector3.back * 0.3f,
+            transform.position + Vector3.left * 0.3f,
+            transform.position + Vector3.right * 0.3f
+        };
+
+        foreach (Vector3 pos in checkPositions)
+        {
+            Gizmos.DrawRay(pos, Vector3.down * groundCheckDistance);
+        }
     }
 }
