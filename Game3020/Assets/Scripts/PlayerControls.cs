@@ -9,6 +9,17 @@ public class PlayerControls : MonoBehaviour
     [SerializeField] private float jumpForce = 8f;
     [SerializeField] private float rotationSpeed = 180f;
 
+    [Header("Airstrafe Settings")]
+    [SerializeField] private float airStrafeAcceleration = 50f;
+    [SerializeField] private float airStrafeMaxSpeed = 15f;
+    [SerializeField] private float airControl = 0.3f;
+
+    [Header("Bunny Hop Settings")]
+    [SerializeField] private float bhopSpeedBoost = 1.2f;
+    [SerializeField] private float maxBhopSpeed = 25f;
+    [SerializeField] private float bhopTimingWindow = 0.15f;
+    [SerializeField] private float speedDecayRate = 0.95f;
+
     [Header("Camera")]
     public CinemachineCamera freeLookCamera;
 
@@ -24,17 +35,21 @@ public class PlayerControls : MonoBehaviour
     [Header("Wall Running")]
     [SerializeField] private LayerMask whatIsWallrunnable = -1;
     [SerializeField] private float wallRunGravity = 1f;
-    [SerializeField] private float jumpCooldown = 0.1f; // reduced for better responsiveness;
+    [SerializeField] private float jumpCooldown = 0.1f;
     [SerializeField] private float wallRunForceMultiplier = 100f;
 
     private Rigidbody rb;
     public bool isGrounded;
+    private bool wasGrounded;
     private Vector2 moveInput;
     private float lastAttackTime;
+    private float currentBhopSpeed;
+    private float timeLeftGround;
+    private bool jumpQueued = false;
 
-    public bool wallRunning = false;
-    public bool readyToWallrun = true;
-    public bool readyToJump = true;
+    private bool wallRunning = false;
+    private bool readyToWallrun = true;
+    private bool readyToJump = true;
     private bool cancellingWall = false;
     private Vector3 wallNormalVector;
 
@@ -42,6 +57,7 @@ public class PlayerControls : MonoBehaviour
     {
         rb = GetComponent<Rigidbody>();
         wallNormalVector = Vector3.up;
+        currentBhopSpeed = moveSpeed;
 
         Cursor.visible = false;
         Cursor.lockState = CursorLockMode.Locked;
@@ -51,6 +67,26 @@ public class PlayerControls : MonoBehaviour
     {
         CheckGrounded();
 
+        // i can track time in air for bhop timing;
+        if (!isGrounded)
+        {
+            timeLeftGround += Time.deltaTime;
+        }
+
+        // i check if landing happened;
+        if (isGrounded && !wasGrounded)
+        {
+            timeLeftGround = 0f;
+        }
+
+        // we decay speed when grounded and not moving;
+        if (isGrounded && moveInput.magnitude < 0.1f)
+        {
+            currentBhopSpeed = Mathf.Lerp(currentBhopSpeed, moveSpeed, Time.deltaTime * 2f);
+        }
+
+        wasGrounded = isGrounded;
+
         if (Keyboard.current.escapeKey.wasPressedThisFrame)
         {
             QuitApplication();
@@ -59,23 +95,29 @@ public class PlayerControls : MonoBehaviour
 
     void QuitApplication()
     {
-        #if UNITY_EDITOR
+#if UNITY_EDITOR
         UnityEditor.EditorApplication.isPlaying = false;
-        #else
+#else
             Application.Quit();
-        #endif
+#endif
     }
 
     void FixedUpdate()
     {
-        Move();
+        if (isGrounded)
+        {
+            MoveGrounded();
+        }
+        else
+        {
+            MoveAirstrafe();
+        }
+
         WallRunning();
     }
 
-    // my new and improved ground detection method;
     private void CheckGrounded()
     {
-        // it will cast multiple rays for better ground detection;
         Vector3[] checkPositions = {
             transform.position,
             transform.position + Vector3.forward * 0.3f,
@@ -100,7 +142,7 @@ public class PlayerControls : MonoBehaviour
         }
     }
 
-    void Move()
+    void MoveGrounded()
     {
         if (moveInput.magnitude >= 0.1f)
         {
@@ -114,30 +156,87 @@ public class PlayerControls : MonoBehaviour
 
             Vector3 moveDirection = (cameraRight * moveInput.x + cameraForwards * moveInput.y).normalized;
 
-            float movementMultiplier = 1f;
-            if (!isGrounded) movementMultiplier = 0.5f;
-            if (wallRunning) movementMultiplier = 1.5f; // 20 × 1.5 = 30 speed for wall running;
-
-            Vector3 targetVelocity = moveDirection * moveSpeed * movementMultiplier;
+            float speedToUse = Mathf.Max(currentBhopSpeed, moveSpeed);
+            Vector3 targetVelocity = moveDirection * speedToUse;
 
             Vector3 currentVelocity = rb.linearVelocity;
             rb.linearVelocity = new Vector3(targetVelocity.x, currentVelocity.y, targetVelocity.z);
+
+            if (moveDirection.magnitude >= 0.1f)
+            {
+                float targetAngle = Mathf.Atan2(moveDirection.x, moveDirection.z) * Mathf.Rad2Deg;
+                float angle = Mathf.MoveTowardsAngle(transform.eulerAngles.y, targetAngle, rotationSpeed * Time.fixedDeltaTime);
+                transform.rotation = Quaternion.AngleAxis(angle, Vector3.up);
+            }
         }
         else
         {
             Vector3 currentVelocity = rb.linearVelocity;
-            rb.linearVelocity = new Vector3(0f, currentVelocity.y, 0f);
+            rb.linearVelocity = new Vector3(
+                currentVelocity.x * speedDecayRate,
+                currentVelocity.y,
+                currentVelocity.z * speedDecayRate
+            );
+        }
+    }
+
+    void MoveAirstrafe()
+    {
+        if (moveInput.magnitude >= 0.1f)
+        {
+            Vector3 cameraForwards = freeLookCamera.transform.forward;
+            Vector3 cameraRight = freeLookCamera.transform.right;
+
+            cameraForwards.y = 0f;
+            cameraRight.y = 0f;
+            cameraForwards.Normalize();
+            cameraRight.Normalize();
+
+            Vector3 wishDirection = (cameraRight * moveInput.x + cameraForwards * moveInput.y).normalized;
+
+            // my airstrafe mechanics - accelerate in the direction of input;
+            Vector3 currentVelocityFlat = new Vector3(rb.linearVelocity.x, 0f, rb.linearVelocity.z);
+            float currentSpeed = currentVelocityFlat.magnitude;
+
+            // we can only apply airstrafe if below max speed;
+            if (currentSpeed < airStrafeMaxSpeed)
+            {
+                Vector3 acceleration = wishDirection * airStrafeAcceleration * Time.fixedDeltaTime;
+
+                Vector3 newVelocity = currentVelocityFlat + acceleration;
+
+                // i clamped to max airstrafe speed (so we dont go too fast)
+                if (newVelocity.magnitude > airStrafeMaxSpeed)
+                {
+                    newVelocity = newVelocity.normalized * Mathf.Min(newVelocity.magnitude, airStrafeMaxSpeed);
+                }
+
+                rb.linearVelocity = new Vector3(newVelocity.x, rb.linearVelocity.y, newVelocity.z);
+            }
+            else
+            {
+                // i should allow minor directional changes even at max speed
+                Vector3 redirectedVelocity = Vector3.Lerp(currentVelocityFlat, wishDirection * currentSpeed, airControl * Time.fixedDeltaTime);
+                rb.linearVelocity = new Vector3(redirectedVelocity.x, rb.linearVelocity.y, redirectedVelocity.z);
+            }
+
+            if (wishDirection.magnitude >= 0.1f)
+            {
+                float targetAngle = Mathf.Atan2(wishDirection.x, wishDirection.z) * Mathf.Rad2Deg;
+                float angle = Mathf.MoveTowardsAngle(transform.eulerAngles.y, targetAngle, rotationSpeed * Time.fixedDeltaTime);
+                transform.rotation = Quaternion.AngleAxis(angle, Vector3.up);
+            }
         }
 
-        Vector3 cameraForward = freeLookCamera.transform.forward;
-        cameraForward.y = 0f;
-        cameraForward.Normalize();
-
-        if (cameraForward.magnitude >= 0.1f)
+        // this is how i apply slight drag when no input in air
+        if (moveInput.magnitude < 0.1f)
         {
-            float targetAngle = Mathf.Atan2(cameraForward.x, cameraForward.z) * Mathf.Rad2Deg;
-            float angle = Mathf.MoveTowardsAngle(transform.eulerAngles.y, targetAngle, rotationSpeed * Time.fixedDeltaTime);
-            transform.rotation = Quaternion.AngleAxis(angle, Vector3.up);
+            Vector3 currentVelocity = rb.linearVelocity;
+            rb.linearVelocity = new Vector3(
+                currentVelocity.x * 0.99f,
+                currentVelocity.y,
+                currentVelocity.z * 0.99f
+            );
         }
     }
 
@@ -208,6 +307,7 @@ public class PlayerControls : MonoBehaviour
         if (other.CompareTag("Respawn"))
         {
             transform.position = new Vector3(0, 2, -5);
+            currentBhopSpeed = moveSpeed;
         }
     }
 
@@ -248,6 +348,30 @@ public class PlayerControls : MonoBehaviour
         readyToJump = true;
     }
 
+    private void PerformJump()
+    {
+        readyToJump = false;
+
+        Vector3 velocity = rb.linearVelocity;
+        rb.linearVelocity = new Vector3(velocity.x, 0f, velocity.z);
+
+        rb.AddForce(Vector3.up * jumpForce, ForceMode.Impulse);
+
+        if (wallRunning)
+        {
+            rb.AddForce(wallNormalVector * jumpForce * 3f, ForceMode.Impulse);
+            wallRunning = false;
+            Debug.Log("Wall jump performed");
+        }
+        else
+        {
+            Debug.Log("Jump performed");
+        }
+
+        timeLeftGround = 0f;
+        Invoke("ResetJump", jumpCooldown);
+    }
+
     public void OnMove(InputValue value)
     {
         moveInput = value.Get<Vector2>();
@@ -255,30 +379,19 @@ public class PlayerControls : MonoBehaviour
 
     public void OnJump(InputValue value)
     {
-        // i added debug logging to help diagnose jump issues;
-        Debug.Log($"Jump input: {value.isPressed}, Grounded: {isGrounded}, Ready: {readyToJump}, WallRunning: {wallRunning}");
-
         if (value.isPressed && (isGrounded || wallRunning) && readyToJump)
         {
-            readyToJump = false;
-
-            Vector3 velocity = rb.linearVelocity;
-            rb.linearVelocity = new Vector3(velocity.x, 0f, velocity.z);
-
-            rb.AddForce(Vector3.up * jumpForce, ForceMode.Impulse);
-
-            if (wallRunning)
+            if (isGrounded && timeLeftGround <= bhopTimingWindow)
             {
-                rb.AddForce(wallNormalVector * jumpForce * 3f, ForceMode.Impulse);
-                wallRunning = false;
-                Debug.Log("Wall jump performed");
+                currentBhopSpeed = Mathf.Min(currentBhopSpeed * bhopSpeedBoost, maxBhopSpeed);
+                Debug.Log($"Good bhop! Speed: {currentBhopSpeed}");
             }
-            else
+            else if (isGrounded)
             {
-                Debug.Log("Ground jump performed");
+                currentBhopSpeed = moveSpeed;
             }
 
-            Invoke("ResetJump", jumpCooldown);
+            PerformJump();
         }
     }
 
@@ -289,7 +402,6 @@ public class PlayerControls : MonoBehaviour
             PerformMeleeAttack();
         }
     }
-
 
     void OnDrawGizmosSelected()
     {
