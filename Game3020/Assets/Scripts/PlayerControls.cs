@@ -7,7 +7,7 @@ public class PlayerControls : MonoBehaviour
     [Header("Movement Settings")]
     [SerializeField] private float moveSpeed = 10f;
     [SerializeField] private float jumpForce = 8f;
-    [SerializeField] private float rotationSpeed = 180f;
+    [SerializeField] private float rotationSpeed = 720f;
 
     [Header("Airstrafe Settings")]
     [SerializeField] private float airStrafeAcceleration = 50f;
@@ -38,6 +38,18 @@ public class PlayerControls : MonoBehaviour
     [SerializeField] private float jumpCooldown = 0.1f;
     [SerializeField] private float wallRunForceMultiplier = 100f;
 
+    [Header("Movement Blocking")]
+    [SerializeField] private LayerMask platformLayer;
+    [SerializeField] private float blockCheckDistance = 0.5f;
+    [SerializeField] private int blockCheckRayCount = 8;
+    [SerializeField] private float heightStart = 0.3f;
+    [SerializeField] private float heightEnd = 1.5f;
+    [SerializeField] private float heightStep = 0.3f;
+    [SerializeField] private float blockingDotThreshold = 0.7f;
+
+    [Header("Animation")]
+    [SerializeField] private float movementThreshold = 0.1f;
+
     private Rigidbody rb;
     public bool isGrounded;
     private bool wasGrounded;
@@ -45,19 +57,24 @@ public class PlayerControls : MonoBehaviour
     private float lastAttackTime;
     private float currentBhopSpeed;
     private float timeLeftGround;
-    private bool jumpQueued = false;
 
     private bool wallRunning = false;
     private bool readyToWallrun = true;
     private bool readyToJump = true;
     private bool cancellingWall = false;
+    public bool isMoving = false;
+
     private Vector3 wallNormalVector;
+    private Animator animator;
+    private Vector3[] blockedDirections;
 
     void Start()
     {
         rb = GetComponent<Rigidbody>();
+        animator = GetComponent<Animator>();
         wallNormalVector = Vector3.up;
         currentBhopSpeed = moveSpeed;
+        blockedDirections = new Vector3[blockCheckRayCount];
 
         Cursor.visible = false;
         Cursor.lockState = CursorLockMode.Locked;
@@ -66,6 +83,9 @@ public class PlayerControls : MonoBehaviour
     void Update()
     {
         CheckGrounded();
+        CheckBlockedDirections();
+        UpdateMovingState();
+        RotateTowardsCameraDirection();
 
         // i can track time in air for bhop timing;
         if (!isGrounded)
@@ -90,6 +110,88 @@ public class PlayerControls : MonoBehaviour
         if (Keyboard.current.escapeKey.wasPressedThisFrame)
         {
             QuitApplication();
+        }
+    }
+
+    void CheckBlockedDirections()
+    {
+        for (int i = 0; i < blockCheckRayCount; i++)
+        {
+            float angle = (360f / blockCheckRayCount) * i;
+            Vector3 rayDirection = new Vector3(
+                Mathf.Cos(angle * Mathf.Deg2Rad),
+                0f,
+                Mathf.Sin(angle * Mathf.Deg2Rad)
+            ).normalized;
+
+            // we cast rays at multiple heights around the character
+            bool hitDetected = false;
+            for (float height = heightStart; height <= heightEnd; height += heightStep)
+            {
+                Vector3 rayOrigin = transform.position + Vector3.up * height;
+                if (Physics.Raycast(rayOrigin, rayDirection, blockCheckDistance, platformLayer))
+                {
+                    hitDetected = true;
+                    break;
+                }
+            }
+
+            if (hitDetected)
+            {
+                blockedDirections[i] = rayDirection;
+            }
+            else
+            {
+                blockedDirections[i] = Vector3.zero;
+            }
+        }
+    }
+
+    private bool IsDirectionBlocked(Vector3 direction)
+    {
+        if (direction.magnitude < 0.1f)
+            return false;
+
+        direction.Normalize();
+
+        foreach (Vector3 blockedDir in blockedDirections)
+        {
+            if (blockedDir.magnitude > 0.1f)
+            {
+                float dot = Vector3.Dot(direction, blockedDir);
+                if (dot > blockingDotThreshold)
+                {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    void RotateTowardsCameraDirection()
+    {
+        Vector3 cameraForward = freeLookCamera.transform.forward;
+        cameraForward.y = 0f;
+        cameraForward.Normalize();
+
+        if (cameraForward.magnitude > 0.1f)
+        {
+            float targetAngle = Mathf.Atan2(cameraForward.x, cameraForward.z) * Mathf.Rad2Deg;
+            float angle = Mathf.MoveTowardsAngle(transform.eulerAngles.y, targetAngle, rotationSpeed * Time.deltaTime);
+            transform.rotation = Quaternion.AngleAxis(angle, Vector3.up);
+        }
+    }
+
+    void UpdateMovingState()
+    {
+        Vector3 horizontalVelocity = new Vector3(rb.linearVelocity.x, 0f, rb.linearVelocity.z);
+        float speed = horizontalVelocity.magnitude;
+
+        isMoving = (moveInput.magnitude > 0.1f && isGrounded) || speed > movementThreshold;
+        if (animator != null)
+        {
+            animator.SetBool("IsMoving", isMoving);
         }
     }
 
@@ -132,7 +234,6 @@ public class PlayerControls : MonoBehaviour
             if (Physics.Raycast(pos, Vector3.down, groundCheckDistance, groundLayer))
             {
                 isGrounded = true;
-                readyToJump = true;
                 if (wallRunning)
                 {
                     wallRunning = false;
@@ -148,26 +249,43 @@ public class PlayerControls : MonoBehaviour
         {
             Vector3 cameraForwards = freeLookCamera.transform.forward;
             Vector3 cameraRight = freeLookCamera.transform.right;
-
             cameraForwards.y = 0f;
             cameraRight.y = 0f;
             cameraForwards.Normalize();
             cameraRight.Normalize();
-
             Vector3 moveDirection = (cameraRight * moveInput.x + cameraForwards * moveInput.y).normalized;
 
-            float speedToUse = Mathf.Max(currentBhopSpeed, moveSpeed);
-            Vector3 targetVelocity = moveDirection * speedToUse;
-
-            Vector3 currentVelocity = rb.linearVelocity;
-            rb.linearVelocity = new Vector3(targetVelocity.x, currentVelocity.y, targetVelocity.z);
-
-            if (moveDirection.magnitude >= 0.1f)
+            if (IsDirectionBlocked(moveDirection))
             {
-                float targetAngle = Mathf.Atan2(moveDirection.x, moveDirection.z) * Mathf.Rad2Deg;
-                float angle = Mathf.MoveTowardsAngle(transform.eulerAngles.y, targetAngle, rotationSpeed * Time.fixedDeltaTime);
-                transform.rotation = Quaternion.AngleAxis(angle, Vector3.up);
+                Vector3 blockedVelocity = rb.linearVelocity;
+                rb.linearVelocity = new Vector3(
+                    blockedVelocity.x * speedDecayRate,
+                    blockedVelocity.y,
+                    blockedVelocity.z * speedDecayRate
+                );
+                return;
             }
+
+            float speedToUse;
+            if (moveInput.y < 0)
+            {
+                speedToUse = moveSpeed * 0.7f;
+            }
+            else
+            {
+                speedToUse = Mathf.Max(currentBhopSpeed, moveSpeed);
+            }
+
+            Vector3 targetVelocity = moveDirection * speedToUse;
+            Vector3 currentVelocity = rb.linearVelocity;
+
+            Vector3 newHorizontalVelocity = new Vector3(targetVelocity.x, 0f, targetVelocity.z);
+            if (newHorizontalVelocity.magnitude > speedToUse)
+            {
+                newHorizontalVelocity = newHorizontalVelocity.normalized * speedToUse;
+            }
+
+            rb.linearVelocity = new Vector3(newHorizontalVelocity.x, currentVelocity.y, newHorizontalVelocity.z);
         }
         else
         {
@@ -194,6 +312,23 @@ public class PlayerControls : MonoBehaviour
 
             Vector3 wishDirection = (cameraRight * moveInput.x + cameraForwards * moveInput.y).normalized;
 
+            if (moveInput.y < -0.5f)
+            {
+                rb.linearVelocity = new Vector3(0f, rb.linearVelocity.y, 0f);
+                return;
+            }
+
+            if (IsDirectionBlocked(wishDirection))
+            {
+                Vector3 dragVelocity = rb.linearVelocity;
+                rb.linearVelocity = new Vector3(
+                    dragVelocity.x * 0.99f,
+                    dragVelocity.y,
+                    dragVelocity.z * 0.99f
+                );
+                return;
+            }
+
             // my airstrafe mechanics - accelerate in the direction of input;
             Vector3 currentVelocityFlat = new Vector3(rb.linearVelocity.x, 0f, rb.linearVelocity.z);
             float currentSpeed = currentVelocityFlat.magnitude;
@@ -218,13 +353,6 @@ public class PlayerControls : MonoBehaviour
                 // i should allow minor directional changes even at max speed
                 Vector3 redirectedVelocity = Vector3.Lerp(currentVelocityFlat, wishDirection * currentSpeed, airControl * Time.fixedDeltaTime);
                 rb.linearVelocity = new Vector3(redirectedVelocity.x, rb.linearVelocity.y, redirectedVelocity.z);
-            }
-
-            if (wishDirection.magnitude >= 0.1f)
-            {
-                float targetAngle = Mathf.Atan2(wishDirection.x, wishDirection.z) * Mathf.Rad2Deg;
-                float angle = Mathf.MoveTowardsAngle(transform.eulerAngles.y, targetAngle, rotationSpeed * Time.fixedDeltaTime);
-                transform.rotation = Quaternion.AngleAxis(angle, Vector3.up);
             }
         }
 
@@ -294,7 +422,8 @@ public class PlayerControls : MonoBehaviour
 
         if (attackEffect != null)
         {
-            Vector3 effectPosition = transform.position + transform.forward * attackRange;
+            Vector3 effectLocation = new Vector3(transform.position.x, transform.position.y + 2, transform.position.z);
+            Vector3 effectPosition = effectLocation + transform.forward * attackRange;
             GameObject effect = Instantiate(attackEffect, effectPosition, transform.rotation);
             Destroy(effect, 2f);
         }
@@ -406,7 +535,8 @@ public class PlayerControls : MonoBehaviour
     void OnDrawGizmosSelected()
     {
         Gizmos.color = Color.red;
-        Vector3 attackPosition = transform.position + transform.forward * (attackRange * 0.5f);
+        Vector3 newAttackPosition = new Vector3(transform.position.x, transform.position.y + 2, transform.position.z);
+        Vector3 attackPosition = newAttackPosition + transform.forward * (attackRange * 0.5f);
         Gizmos.DrawWireSphere(attackPosition, attackRange);
 
         if (wallRunning)
@@ -415,7 +545,6 @@ public class PlayerControls : MonoBehaviour
             Gizmos.DrawRay(transform.position, wallNormalVector * 2f);
         }
 
-        // Draw ground check rays for debugging
         Gizmos.color = isGrounded ? Color.green : Color.red;
         Vector3[] checkPositions = {
             transform.position,
@@ -429,5 +558,46 @@ public class PlayerControls : MonoBehaviour
         {
             Gizmos.DrawRay(pos, Vector3.down * groundCheckDistance);
         }
+
+        Gizmos.color = Color.yellow;
+        for (int i = 0; i < blockCheckRayCount; i++)
+        {
+            float angle = (360f / blockCheckRayCount) * i;
+            Vector3 rayDirection = new Vector3(
+                Mathf.Cos(angle * Mathf.Deg2Rad),
+                0f,
+                Mathf.Sin(angle * Mathf.Deg2Rad)
+            ).normalized;
+
+            for (float height = heightStart; height <= heightEnd; height += heightStep)
+            {
+                Vector3 rayOrigin = transform.position + Vector3.up * height;
+                Gizmos.DrawRay(rayOrigin, rayDirection * blockCheckDistance);
+            }
+        }
+
+        Gizmos.color = Color.purple;
+        for (int i = 0; i < blockedDirections.Length; i++)
+        {
+            if (blockedDirections[i].magnitude > 0.1f)
+            {
+                for (float height = heightStart; height <= heightEnd; height += heightStep)
+                {
+                    Vector3 rayOrigin = transform.position + Vector3.up * height;
+                    Gizmos.DrawRay(rayOrigin, blockedDirections[i] * blockCheckDistance);
+                }
+            }
+        }
+    }
+
+    public float GetHorizontalSpeed()
+    {
+        Vector3 horizontalVelocity = new Vector3(rb.linearVelocity.x, 0f, rb.linearVelocity.z);
+        return horizontalVelocity.magnitude;
+    }
+
+    public bool IsWallRunning()
+    {
+        return wallRunning;
     }
 }
