@@ -49,6 +49,7 @@ public class PlayerControls : MonoBehaviour
 
     [Header("Animation")]
     [SerializeField] private float movementThreshold = 0.1f;
+    [SerializeField] private float maxForwardSpeed = 25f;
 
     private Rigidbody rb;
     public bool isGrounded;
@@ -57,6 +58,8 @@ public class PlayerControls : MonoBehaviour
     private float lastAttackTime;
     private float currentBhopSpeed;
     private float timeLeftGround;
+    private bool jumpRequested = false;
+    private float forwardSpeed = 0f;
 
     private bool wallRunning = false;
     private bool readyToWallrun = true;
@@ -72,6 +75,12 @@ public class PlayerControls : MonoBehaviour
     {
         rb = GetComponent<Rigidbody>();
         animator = GetComponent<Animator>();
+
+        if (animator == null)
+        {
+            Debug.LogError("Animator component not found on player! Add an Animator component to your player GameObject.");
+        }
+
         wallNormalVector = Vector3.up;
         currentBhopSpeed = moveSpeed;
         blockedDirections = new Vector3[blockCheckRayCount];
@@ -85,6 +94,7 @@ public class PlayerControls : MonoBehaviour
         CheckGrounded();
         CheckBlockedDirections();
         UpdateMovingState();
+        UpdateAnimationParameters();
         RotateTowardsCameraDirection();
 
         // i can track time in air for bhop timing;
@@ -110,6 +120,39 @@ public class PlayerControls : MonoBehaviour
         if (Keyboard.current.escapeKey.wasPressedThisFrame)
         {
             QuitApplication();
+        }
+    }
+
+    void UpdateAnimationParameters()
+    {
+        Debug.Log("UpdateAnimationParameters called");
+
+        if (animator == null)
+        {
+            Debug.Log("Animator is NULL!");
+            return;
+        }
+
+        try
+        {
+            Vector3 horizontalVelocity = new Vector3(rb.linearVelocity.x, 0f, rb.linearVelocity.z);
+            float currentSpeed = horizontalVelocity.magnitude;
+            forwardSpeed = Mathf.Clamp01(currentSpeed / maxForwardSpeed);
+
+            animator.SetFloat("ForwardSpeed", forwardSpeed);
+            animator.SetBool("IsGrounded", isGrounded);
+            animator.SetBool("JumpRequested", jumpRequested);
+
+            //Debug.Log($"ForwardSpeed: {forwardSpeed}, IsGrounded: {isGrounded}, JumpRequested: {jumpRequested}");
+
+            if (jumpRequested)
+            {
+                jumpRequested = false;
+            }
+        }
+        catch (System.Exception e)
+        {
+            Debug.Log($"Error in UpdateAnimationParameters: {e.Message}");
         }
     }
 
@@ -377,20 +420,6 @@ public class PlayerControls : MonoBehaviour
         }
     }
 
-    private void CancelWallrun()
-    {
-        Debug.Log("Wall run cancelled");
-        Invoke("GetReadyToWallrun", 0.1f);
-        rb.AddForce(wallNormalVector * 600f);
-        readyToWallrun = false;
-        wallRunning = false;
-    }
-
-    private void GetReadyToWallrun()
-    {
-        readyToWallrun = true;
-    }
-
     private void StartWallRun(Vector3 normal)
     {
         if (!isGrounded && readyToWallrun)
@@ -520,6 +549,7 @@ public class PlayerControls : MonoBehaviour
                 currentBhopSpeed = moveSpeed;
             }
 
+            jumpRequested = true;
             PerformJump();
         }
     }
@@ -577,14 +607,17 @@ public class PlayerControls : MonoBehaviour
         }
 
         Gizmos.color = Color.purple;
-        for (int i = 0; i < blockedDirections.Length; i++)
+        if (blockedDirections != null)
         {
-            if (blockedDirections[i].magnitude > 0.1f)
+            for (int i = 0; i < blockedDirections.Length; i++)
             {
-                for (float height = heightStart; height <= heightEnd; height += heightStep)
+                if (blockedDirections[i].magnitude > 0.1f)
                 {
-                    Vector3 rayOrigin = transform.position + Vector3.up * height;
-                    Gizmos.DrawRay(rayOrigin, blockedDirections[i] * blockCheckDistance);
+                    for (float height = heightStart; height <= heightEnd; height += heightStep)
+                    {
+                        Vector3 rayOrigin = transform.position + Vector3.up * height;
+                        Gizmos.DrawRay(rayOrigin, blockedDirections[i] * blockCheckDistance);
+                    }
                 }
             }
         }
