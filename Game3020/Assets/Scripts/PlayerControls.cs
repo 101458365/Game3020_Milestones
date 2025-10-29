@@ -35,10 +35,13 @@ public class PlayerControls : MonoBehaviour
     [SerializeField] private AudioSource footstepsSound;
     [SerializeField] private AudioSource sprintSound;
     [SerializeField] private float sprintSpeedThreshold = 15f;
+    [SerializeField] private AudioSource landingAudioSource;
+    [SerializeField] private AudioClip landingSound;
 
     [Header("Ground Check")]
     [SerializeField] private float groundCheckDistance = 1.1f;
     [SerializeField] private LayerMask groundLayer = 1;
+    private float lastLandTime = 0f;
 
     [Header("Wall Running")]
     [SerializeField] private LayerMask whatIsWallrunnable = -1;
@@ -62,7 +65,7 @@ public class PlayerControls : MonoBehaviour
 
     private Rigidbody rb;
     public bool isGrounded;
-    private bool wasGrounded;
+    private bool wasOnGround;
     private Vector2 moveInput;
     private float lastAttackTime;
     private float currentBhopSpeed;
@@ -113,19 +116,11 @@ public class PlayerControls : MonoBehaviour
             timeLeftGround += Time.deltaTime;
         }
 
-        // i check if landing happened;
-        if (isGrounded && !wasGrounded)
-        {
-            timeLeftGround = 0f;
-        }
-
         // we decay speed when grounded and not moving;
         if (isGrounded && moveInput.magnitude < 0.1f)
         {
             currentBhopSpeed = Mathf.Lerp(currentBhopSpeed, moveSpeed, Time.deltaTime * 2f);
         }
-
-        wasGrounded = isGrounded;
 
         if (Keyboard.current.escapeKey.wasPressedThisFrame)
         {
@@ -299,10 +294,14 @@ public class PlayerControls : MonoBehaviour
         }
 
         WallRunning();
+
+        wasOnGround = isGrounded;
     }
 
     private void CheckGrounded()
     {
+        bool groundedNow = false;
+
         Vector3[] checkPositions = {
             transform.position,
             transform.position + Vector3.forward * 0.3f,
@@ -311,18 +310,41 @@ public class PlayerControls : MonoBehaviour
             transform.position + Vector3.right * 0.3f
         };
 
-        isGrounded = false;
         foreach (Vector3 pos in checkPositions)
         {
             if (Physics.Raycast(pos, Vector3.down, groundCheckDistance, groundLayer))
             {
-                isGrounded = true;
+                groundedNow = true;
                 if (wallRunning)
-                {
                     wallRunning = false;
-                }
                 break;
             }
+        }
+
+        // i check if we just landed (so we can play the landing sound)
+        if (groundedNow && !isGrounded)
+        {
+            OnLand();
+        }
+
+        isGrounded = groundedNow;
+    }
+
+    private void OnLand()
+    {
+        // i reset the air time when landing
+        timeLeftGround = 0f;
+
+        // i use a cooldown so the landing sound doesnt play twice
+        if (Time.time - lastLandTime > 0.2f)
+        {
+            if (landingAudioSource != null && landingSound != null)
+            {
+                landingAudioSource.PlayOneShot(landingSound);
+                Debug.Log("Landed");
+            }
+
+            lastLandTime = Time.time;
         }
     }
 
@@ -601,7 +623,6 @@ public class PlayerControls : MonoBehaviour
             Debug.Log("Jump performed");
         }
 
-        timeLeftGround = 0f;
         Invoke("ResetJump", jumpCooldown);
     }
 
