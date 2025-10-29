@@ -484,42 +484,45 @@ public class PlayerControls : MonoBehaviour
 
     void PerformMeleeAttack()
     {
-        if (Time.time < lastAttackTime + attackCooldown)
-            return;
-
-        lastAttackTime = Time.time;
-
-        if (animator != null)
+        if (isGrounded == true)
         {
-            animator.SetBool("Attack", true);
-        }
+            if (Time.time < lastAttackTime + attackCooldown)
+                return;
 
-        if (audioSource != null && attackSound != null)
-        {
-            audioSource.PlayOneShot(attackSound);
-        }
+            lastAttackTime = Time.time;
 
-        // i randomly select one of the attack effects from the array
-        if (attackEffects != null && attackEffects.Length > 0 && animator != null && animator.GetBool("Attack"))
-        {
-            // i pick a random effect
-            int randomIndex = Random.Range(0, attackEffects.Length);
-            GameObject selectedEffect = attackEffects[randomIndex];
-
-            if (selectedEffect != null)
+            if (animator != null)
             {
-                Vector3 effectLocation = new Vector3(transform.position.x, transform.position.y, transform.position.z);
-                Vector3 effectPosition = effectLocation + transform.forward * attackRange;
-                GameObject effect = Instantiate(selectedEffect, effectPosition, transform.rotation);
-
-                effect.transform.SetParent(transform);
-                Destroy(effect, 4f);
+                animator.SetBool("Attack", true);
             }
 
-            StartCoroutine(DisableAttackBoolAfterDelay(0.1f));
-        }
+            if (audioSource != null && attackSound != null)
+            {
+                audioSource.PlayOneShot(attackSound);
+            }
 
-        Debug.Log("Attack performed!");
+            // i randomly select one of the attack effects from the array
+            if (attackEffects != null && attackEffects.Length > 0 && animator != null && animator.GetBool("Attack"))
+            {
+                // i pick a random effect
+                int randomIndex = Random.Range(0, attackEffects.Length);
+                GameObject selectedEffect = attackEffects[randomIndex];
+
+                if (selectedEffect != null)
+                {
+                    Vector3 effectLocation = new Vector3(transform.position.x, transform.position.y, transform.position.z);
+                    Vector3 effectPosition = effectLocation + transform.forward * attackRange;
+                    GameObject effect = Instantiate(selectedEffect, effectPosition, transform.rotation);
+
+                    effect.transform.SetParent(transform);
+                    Destroy(effect, 4f);
+                }
+
+                StartCoroutine(DisableAttackBoolAfterDelay(0.1f));
+            }
+
+            Debug.Log("Attack performed!");
+        }
     }
 
     private IEnumerator DisableAttackBoolAfterDelay(float delay)
