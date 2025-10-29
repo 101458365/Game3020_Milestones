@@ -1,6 +1,7 @@
 using UnityEngine;
 using UnityEngine.InputSystem;
 using Unity.Cinemachine;
+using System.Collections;
 
 public class PlayerControls : MonoBehaviour
 {
@@ -26,7 +27,14 @@ public class PlayerControls : MonoBehaviour
     [Header("Combat Settings")]
     [SerializeField] private float attackRange = 2f;
     [SerializeField] private float attackCooldown = 1f;
-    [SerializeField] private GameObject attackEffect;
+    [SerializeField] private GameObject[] attackEffects;
+    [SerializeField] private AudioClip attackSound;
+    [SerializeField] private AudioSource audioSource;
+
+    [Header("Audio - Footsteps")]
+    [SerializeField] private AudioSource footstepsSound;
+    [SerializeField] private AudioSource sprintSound;
+    [SerializeField] private float sprintSpeedThreshold = 15f;
 
     [Header("Ground Check")]
     [SerializeField] private float groundCheckDistance = 1.1f;
@@ -49,7 +57,8 @@ public class PlayerControls : MonoBehaviour
 
     [Header("Animation")]
     [SerializeField] private float movementThreshold = 0.1f;
-    [SerializeField] private float maxForwardSpeed = 25f;
+    [SerializeField] private float maxForwardSpeed = 10f;
+    [SerializeField] private float animationSensitivity = 2f;
 
     private Rigidbody rb;
     public bool isGrounded;
@@ -96,6 +105,7 @@ public class PlayerControls : MonoBehaviour
         UpdateMovingState();
         UpdateAnimationParameters();
         RotateTowardsCameraDirection();
+        UpdateFootstepSounds();
 
         // i can track time in air for bhop timing;
         if (!isGrounded)
@@ -125,11 +135,8 @@ public class PlayerControls : MonoBehaviour
 
     void UpdateAnimationParameters()
     {
-        Debug.Log("UpdateAnimationParameters called");
-
         if (animator == null)
         {
-            Debug.Log("Animator is NULL!");
             return;
         }
 
@@ -137,13 +144,13 @@ public class PlayerControls : MonoBehaviour
         {
             Vector3 horizontalVelocity = new Vector3(rb.linearVelocity.x, 0f, rb.linearVelocity.z);
             float currentSpeed = horizontalVelocity.magnitude;
-            forwardSpeed = Mathf.Clamp01(currentSpeed / maxForwardSpeed);
+
+            // i use animation sensitivity so the animations respond faster at lower speeds
+            forwardSpeed = Mathf.Clamp01((currentSpeed / maxForwardSpeed) * animationSensitivity);
 
             animator.SetFloat("ForwardSpeed", forwardSpeed);
             animator.SetBool("IsGrounded", isGrounded);
             animator.SetBool("JumpRequested", jumpRequested);
-
-            //Debug.Log($"ForwardSpeed: {forwardSpeed}, IsGrounded: {isGrounded}, JumpRequested: {jumpRequested}");
 
             if (jumpRequested)
             {
@@ -153,6 +160,39 @@ public class PlayerControls : MonoBehaviour
         catch (System.Exception e)
         {
             Debug.Log($"Error in UpdateAnimationParameters: {e.Message}");
+        }
+    }
+
+    void UpdateFootstepSounds()
+    {
+        // i check if we're moving and on the ground
+        if (isMoving && isGrounded && moveInput.magnitude > 0.1f)
+        {
+            // i get the current horizontal speed
+            float currentSpeed = GetHorizontalSpeed();
+
+            // i use bhop speed or current speed (whichever is higher)
+            float speedToCheck = Mathf.Max(currentBhopSpeed, currentSpeed);
+
+            // i check if we're sprinting (moving fast enough)
+            if (speedToCheck > sprintSpeedThreshold)
+            {
+                // sprint sounds only
+                if (footstepsSound != null) footstepsSound.enabled = false;
+                if (sprintSound != null) sprintSound.enabled = true;
+            }
+            else
+            {
+                // normal walking sounds
+                if (footstepsSound != null) footstepsSound.enabled = true;
+                if (sprintSound != null) sprintSound.enabled = false;
+            }
+        }
+        else
+        {
+            // not moving so i disable both sounds
+            if (footstepsSound != null) footstepsSound.enabled = false;
+            if (sprintSound != null) sprintSound.enabled = false;
         }
     }
 
@@ -449,15 +489,47 @@ public class PlayerControls : MonoBehaviour
 
         lastAttackTime = Time.time;
 
-        if (attackEffect != null)
+        if (animator != null)
         {
-            Vector3 effectLocation = new Vector3(transform.position.x, transform.position.y + 2, transform.position.z);
-            Vector3 effectPosition = effectLocation + transform.forward * attackRange;
-            GameObject effect = Instantiate(attackEffect, effectPosition, transform.rotation);
-            Destroy(effect, 2f);
+            animator.SetBool("Attack", true);
+        }
+
+        if (audioSource != null && attackSound != null)
+        {
+            audioSource.PlayOneShot(attackSound);
+        }
+
+        // i randomly select one of the attack effects from the array
+        if (attackEffects != null && attackEffects.Length > 0 && animator != null && animator.GetBool("Attack"))
+        {
+            // i pick a random effect
+            int randomIndex = Random.Range(0, attackEffects.Length);
+            GameObject selectedEffect = attackEffects[randomIndex];
+
+            if (selectedEffect != null)
+            {
+                Vector3 effectLocation = new Vector3(transform.position.x, transform.position.y, transform.position.z);
+                Vector3 effectPosition = effectLocation + transform.forward * attackRange;
+                GameObject effect = Instantiate(selectedEffect, effectPosition, transform.rotation);
+
+                effect.transform.SetParent(transform);
+                Destroy(effect, 4f);
+            }
+
+            StartCoroutine(DisableAttackBoolAfterDelay(0.1f));
         }
 
         Debug.Log("Attack performed!");
+    }
+
+    private IEnumerator DisableAttackBoolAfterDelay(float delay)
+    {
+        yield return new WaitForSeconds(delay);
+
+        if (animator != null)
+        {
+            animator.SetBool("Attack", false);
+        }
     }
 
     void OnTriggerEnter(Collider other)
