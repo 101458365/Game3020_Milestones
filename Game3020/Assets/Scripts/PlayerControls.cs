@@ -68,6 +68,10 @@ public class PlayerControls : MonoBehaviour
     [Header("Background Audio")]
     [SerializeField] BackgroundAudio backgroundAudio;
 
+    [Header("UI - Pause Menu")]
+    [SerializeField] private GameObject pauseMenuPanel;
+    private bool isPaused = false;
+
     private Rigidbody rb;
     public bool isGrounded;
     private bool wasOnGround;
@@ -119,6 +123,16 @@ public class PlayerControls : MonoBehaviour
 
     void Update()
     {
+        // Handle pause toggle
+        if (Keyboard.current.escapeKey.wasPressedThisFrame)
+        {
+            TogglePause();
+        }
+
+        // Don't update game logic if paused
+        if (isPaused)
+            return;
+
         CheckGrounded();
         CheckBlockedDirections();
         UpdateMovingState();
@@ -135,10 +149,35 @@ public class PlayerControls : MonoBehaviour
         {
             currentBhopSpeed = Mathf.Lerp(currentBhopSpeed, moveSpeed, Time.deltaTime * 2f);
         }
+    }
 
-        if (Keyboard.current.escapeKey.wasPressedThisFrame)
+    void TogglePause()
+    {
+        isPaused = !isPaused;
+
+        if (isPaused)
         {
-            QuitApplication();
+            Time.timeScale = 0f;
+
+            if (pauseMenuPanel != null)
+                pauseMenuPanel.SetActive(true);
+
+            Cursor.visible = true;
+            Cursor.lockState = CursorLockMode.None;
+
+            Debug.Log("Game Paused");
+        }
+        else
+        {
+            Time.timeScale = 1f;
+
+            if (pauseMenuPanel != null)
+                pauseMenuPanel.SetActive(false);
+
+            Cursor.visible = false;
+            Cursor.lockState = CursorLockMode.Locked;
+
+            Debug.Log("Game Resumed");
         }
     }
 
@@ -253,7 +292,6 @@ public class PlayerControls : MonoBehaviour
 
     void RotateTowardsCameraDirection()
     {
-        // i dont rotate the character if we're attacking (but camera can still move)
         if (isAttacking)
             return;
 
@@ -281,18 +319,12 @@ public class PlayerControls : MonoBehaviour
         }
     }
 
-    void QuitApplication()
-    {
-#if UNITY_EDITOR
-        UnityEditor.EditorApplication.isPlaying = false;
-#else
-            Application.Quit();
-#endif
-    }
-
     void FixedUpdate()
     {
-        // i dont move if we're attacking
+        // Don't process physics if paused
+        if (isPaused)
+            return;
+
         if (!isAttacking)
         {
             if (isGrounded)
@@ -308,7 +340,6 @@ public class PlayerControls : MonoBehaviour
         }
         else
         {
-            // i stop horizontal movement when attacking
             Vector3 currentVelocity = rb.linearVelocity;
             rb.linearVelocity = new Vector3(0f, currentVelocity.y, 0f);
         }
@@ -536,17 +567,13 @@ public class PlayerControls : MonoBehaviour
                 audioSource.PlayOneShot(attackSound);
             }
 
-            // i randomly select one of the attack effects from the array
             if (attackEffects != null && attackEffects.Length > 0 && animator != null && animator.GetBool("Attack"))
             {
-                // i pick a random effect
                 int randomIndex = Random.Range(0, attackEffects.Length);
                 GameObject selectedEffect = attackEffects[randomIndex];
 
-                // i change the material to match the same index as the attack effect
                 if (playerRenderer != null && attackMaterials != null && attackMaterials.Length > 0)
                 {
-                    // i use the same index for the material (with a safety check)
                     int materialIndex = Mathf.Min(randomIndex, attackMaterials.Length - 1);
                     playerRenderer.material = attackMaterials[materialIndex];
                     Debug.Log($"Using material index: {materialIndex} for attack effect index: {randomIndex}");
@@ -591,7 +618,6 @@ public class PlayerControls : MonoBehaviour
             Debug.Log("Material reset to original");
         }
         backgroundAudio.SetVolume(0.05f);
-        // i re-enable movement after the attack is finished
         isAttacking = false;
     }
 
@@ -599,14 +625,17 @@ public class PlayerControls : MonoBehaviour
     {
         if (other.CompareTag("Respawn"))
         {
+            // Register the fall with GameManager
             if (GameManager.Instance != null)
             {
                 GameManager.Instance.RegisterFall();
             }
 
+            // Respawn player
             transform.position = new Vector3(0, 2, -35);
             currentBhopSpeed = moveSpeed;
 
+            // Reset velocity to prevent falling again immediately
             if (rb != null)
             {
                 rb.linearVelocity = Vector3.zero;

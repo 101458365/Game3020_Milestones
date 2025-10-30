@@ -8,7 +8,7 @@ public class GameManager : MonoBehaviour
 
     [Header("Game Rules")]
     [SerializeField] private int maxFalls = 3;
-    [SerializeField] private float timeLimit = 120f;
+    [SerializeField] private float timeLimit = 90f;
 
     [Header("UI")]
     [SerializeField] private TextMeshProUGUI timerText;

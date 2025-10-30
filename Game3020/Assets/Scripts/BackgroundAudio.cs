@@ -2,24 +2,34 @@ using UnityEngine;
 
 public class BackgroundAudio : MonoBehaviour
 {
+    public static BackgroundAudio Instance;
+
     [SerializeField] private AudioClip backgroundMusic;
     [SerializeField] private float volume = 0.05f;
-
     private AudioSource audioSource;
 
     void Awake()
     {
-        DontDestroyOnLoad(gameObject);
+        // Singleton pattern
+        if (Instance == null)
+        {
+            Instance = this;
+            DontDestroyOnLoad(gameObject);
 
-        audioSource = gameObject.AddComponent<AudioSource>();
-        audioSource.clip = backgroundMusic;
-        audioSource.volume = volume;
-        audioSource.loop = true;
+            audioSource = gameObject.AddComponent<AudioSource>();
+            audioSource.clip = backgroundMusic;
+            audioSource.volume = volume;
+            audioSource.loop = true;
+        }
+        else
+        {
+            Destroy(gameObject);
+        }
     }
 
     void Start()
     {
-        if (backgroundMusic != null && !audioSource.isPlaying)
+        if (Instance == this && backgroundMusic != null && !audioSource.isPlaying)
         {
             audioSource.Play();
         }
@@ -30,5 +40,4 @@ public class BackgroundAudio : MonoBehaviour
         volume = Mathf.Clamp01(newVolume);
         audioSource.volume = volume;
     }
-
 }

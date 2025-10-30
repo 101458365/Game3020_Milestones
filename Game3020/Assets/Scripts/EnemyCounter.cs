@@ -7,8 +7,7 @@ public class EnemyCounter : MonoBehaviour
     public static EnemyCounter Instance;
 
     [Header("Enemy References")]
-    public GameObject enemy1;
-    public GameObject enemy2;
+    public GameObject[] enemies;
 
     [Header("UI Settings")]
     public TextMeshProUGUI counterText;
@@ -39,8 +38,14 @@ public class EnemyCounter : MonoBehaviour
     void UpdateUI()
     {
         int activeCount = 0;
-        if (enemy1 != null && enemy1.activeSelf) activeCount++;
-        if (enemy2 != null && enemy2.activeSelf) activeCount++;
+
+        for (int i = 0; i < enemies.Length; i++)
+        {
+            if (enemies[i] != null && enemies[i].activeSelf)
+            {
+                activeCount++;
+            }
+        }
 
         if (counterText != null)
         {
@@ -50,10 +55,18 @@ public class EnemyCounter : MonoBehaviour
 
     void CheckWinCondition()
     {
-        bool enemy1Defeated = enemy1 == null || !enemy1.activeSelf;
-        bool enemy2Defeated = enemy2 == null || !enemy2.activeSelf;
+        bool allDefeated = true;
 
-        if (enemy1Defeated && enemy2Defeated)
+        for (int i = 0; i < enemies.Length; i++)
+        {
+            if (enemies[i] != null && enemies[i].activeSelf)
+            {
+                allDefeated = false;
+                break;
+            }
+        }
+
+        if (allDefeated)
         {
             OnAllEnemiesDefeated();
         }

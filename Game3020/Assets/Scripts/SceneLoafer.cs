@@ -4,6 +4,11 @@ using UnityEngine.SceneManagement;
 public class SceneLoafer : MonoBehaviour
 {
     [SerializeField] int sceneIndex;
+
+    private void Awake()
+    {
+        Time.timeScale = 1f;
+    }
     private void Start()
     {
         Cursor.visible = true;
