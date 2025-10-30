@@ -2,6 +2,7 @@ using UnityEngine;
 using UnityEngine.InputSystem;
 using Unity.Cinemachine;
 using System.Collections;
+using UnityEngine.UIElements;
 
 public class PlayerControls : MonoBehaviour
 {
@@ -30,6 +31,8 @@ public class PlayerControls : MonoBehaviour
     [SerializeField] private GameObject[] attackEffects;
     [SerializeField] private AudioClip attackSound;
     [SerializeField] private AudioSource audioSource;
+    [SerializeField] private Material[] attackMaterials;
+    [SerializeField] private Renderer playerRenderer;
 
     [Header("Audio - Footsteps")]
     [SerializeField] private AudioSource footstepsSound;
@@ -63,6 +66,9 @@ public class PlayerControls : MonoBehaviour
     [SerializeField] private float maxForwardSpeed = 10f;
     [SerializeField] private float animationSensitivity = 2f;
 
+    [Header("Background Audio")]
+    [SerializeField] private AudioSource backgroundAudio;
+
     private Rigidbody rb;
     public bool isGrounded;
     private bool wasOnGround;
@@ -78,10 +84,12 @@ public class PlayerControls : MonoBehaviour
     private bool readyToJump = true;
     private bool cancellingWall = false;
     public bool isMoving = false;
+    private bool isAttacking = false;
 
     private Vector3 wallNormalVector;
     private Animator animator;
     private Vector3[] blockedDirections;
+    private Material originalMaterial;
 
     void Start()
     {
@@ -91,6 +99,15 @@ public class PlayerControls : MonoBehaviour
         if (animator == null)
         {
             Debug.LogError("Animator component not found on player! Add an Animator component to your player GameObject.");
+        }
+
+        if (playerRenderer != null)
+        {
+            originalMaterial = playerRenderer.material;
+        }
+        else
+        {
+            Debug.LogWarning("Player Renderer not assigned! Material changes won't work.");
         }
 
         wallNormalVector = Vector3.up;
@@ -110,13 +127,11 @@ public class PlayerControls : MonoBehaviour
         RotateTowardsCameraDirection();
         UpdateFootstepSounds();
 
-        // i can track time in air for bhop timing;
         if (!isGrounded)
         {
             timeLeftGround += Time.deltaTime;
         }
 
-        // we decay speed when grounded and not moving;
         if (isGrounded && moveInput.magnitude < 0.1f)
         {
             currentBhopSpeed = Mathf.Lerp(currentBhopSpeed, moveSpeed, Time.deltaTime * 2f);
@@ -140,7 +155,6 @@ public class PlayerControls : MonoBehaviour
             Vector3 horizontalVelocity = new Vector3(rb.linearVelocity.x, 0f, rb.linearVelocity.z);
             float currentSpeed = horizontalVelocity.magnitude;
 
-            // i use animation sensitivity so the animations respond faster at lower speeds
             forwardSpeed = Mathf.Clamp01((currentSpeed / maxForwardSpeed) * animationSensitivity);
 
             animator.SetFloat("ForwardSpeed", forwardSpeed);
@@ -160,32 +174,24 @@ public class PlayerControls : MonoBehaviour
 
     void UpdateFootstepSounds()
     {
-        // i check if we're moving and on the ground
         if (isMoving && isGrounded && moveInput.magnitude > 0.1f)
         {
-            // i get the current horizontal speed
             float currentSpeed = GetHorizontalSpeed();
-
-            // i use bhop speed or current speed (whichever is higher)
             float speedToCheck = Mathf.Max(currentBhopSpeed, currentSpeed);
 
-            // i check if we're sprinting (moving fast enough)
             if (speedToCheck > sprintSpeedThreshold)
             {
-                // sprint sounds only
                 if (footstepsSound != null) footstepsSound.enabled = false;
                 if (sprintSound != null) sprintSound.enabled = true;
             }
             else
             {
-                // normal walking sounds
                 if (footstepsSound != null) footstepsSound.enabled = true;
                 if (sprintSound != null) sprintSound.enabled = false;
             }
         }
         else
         {
-            // not moving so i disable both sounds
             if (footstepsSound != null) footstepsSound.enabled = false;
             if (sprintSound != null) sprintSound.enabled = false;
         }
@@ -202,7 +208,6 @@ public class PlayerControls : MonoBehaviour
                 Mathf.Sin(angle * Mathf.Deg2Rad)
             ).normalized;
 
-            // we cast rays at multiple heights around the character
             bool hitDetected = false;
             for (float height = heightStart; height <= heightEnd; height += heightStep)
             {
@@ -249,6 +254,10 @@ public class PlayerControls : MonoBehaviour
 
     void RotateTowardsCameraDirection()
     {
+        // i dont rotate the character if we're attacking (but camera can still move)
+        if (isAttacking)
+            return;
+
         Vector3 cameraForward = freeLookCamera.transform.forward;
         cameraForward.y = 0f;
         cameraForward.Normalize();
@@ -284,16 +293,26 @@ public class PlayerControls : MonoBehaviour
 
     void FixedUpdate()
     {
-        if (isGrounded)
+        // i dont move if we're attacking
+        if (!isAttacking)
         {
-            MoveGrounded();
+            if (isGrounded)
+            {
+                MoveGrounded();
+            }
+            else
+            {
+                MoveAirstrafe();
+            }
+
+            WallRunning();
         }
         else
         {
-            MoveAirstrafe();
+            // i stop horizontal movement when attacking
+            Vector3 currentVelocity = rb.linearVelocity;
+            rb.linearVelocity = new Vector3(0f, currentVelocity.y, 0f);
         }
-
-        WallRunning();
 
         wasOnGround = isGrounded;
     }
@@ -321,7 +340,6 @@ public class PlayerControls : MonoBehaviour
             }
         }
 
-        // i check if we just landed (so we can play the landing sound)
         if (groundedNow && !isGrounded)
         {
             OnLand();
@@ -332,10 +350,8 @@ public class PlayerControls : MonoBehaviour
 
     private void OnLand()
     {
-        // i reset the air time when landing
         timeLeftGround = 0f;
 
-        // i use a cooldown so the landing sound doesnt play twice
         if (Time.time - lastLandTime > 0.2f)
         {
             if (landingAudioSource != null && landingSound != null)
@@ -434,18 +450,15 @@ public class PlayerControls : MonoBehaviour
                 return;
             }
 
-            // my airstrafe mechanics - accelerate in the direction of input;
             Vector3 currentVelocityFlat = new Vector3(rb.linearVelocity.x, 0f, rb.linearVelocity.z);
             float currentSpeed = currentVelocityFlat.magnitude;
 
-            // we can only apply airstrafe if below max speed;
             if (currentSpeed < airStrafeMaxSpeed)
             {
                 Vector3 acceleration = wishDirection * airStrafeAcceleration * Time.fixedDeltaTime;
 
                 Vector3 newVelocity = currentVelocityFlat + acceleration;
 
-                // i clamped to max airstrafe speed (so we dont go too fast)
                 if (newVelocity.magnitude > airStrafeMaxSpeed)
                 {
                     newVelocity = newVelocity.normalized * Mathf.Min(newVelocity.magnitude, airStrafeMaxSpeed);
@@ -455,13 +468,11 @@ public class PlayerControls : MonoBehaviour
             }
             else
             {
-                // i should allow minor directional changes even at max speed
                 Vector3 redirectedVelocity = Vector3.Lerp(currentVelocityFlat, wishDirection * currentSpeed, airControl * Time.fixedDeltaTime);
                 rb.linearVelocity = new Vector3(redirectedVelocity.x, rb.linearVelocity.y, redirectedVelocity.z);
             }
         }
 
-        // this is how i apply slight drag when no input in air
         if (moveInput.magnitude < 0.1f)
         {
             Vector3 currentVelocity = rb.linearVelocity;
@@ -512,6 +523,7 @@ public class PlayerControls : MonoBehaviour
                 return;
 
             lastAttackTime = Time.time;
+            isAttacking = true;
 
             if (animator != null)
             {
@@ -530,6 +542,15 @@ public class PlayerControls : MonoBehaviour
                 int randomIndex = Random.Range(0, attackEffects.Length);
                 GameObject selectedEffect = attackEffects[randomIndex];
 
+                // i change the material to match the same index as the attack effect
+                if (playerRenderer != null && attackMaterials != null && attackMaterials.Length > 0)
+                {
+                    // i use the same index for the material (with a safety check)
+                    int materialIndex = Mathf.Min(randomIndex, attackMaterials.Length - 1);
+                    playerRenderer.material = attackMaterials[materialIndex];
+                    Debug.Log($"Using material index: {materialIndex} for attack effect index: {randomIndex}");
+                }
+
                 if (selectedEffect != null)
                 {
                     Vector3 effectLocation = new Vector3(transform.position.x, transform.position.y, transform.position.z);
@@ -543,6 +564,8 @@ public class PlayerControls : MonoBehaviour
                 StartCoroutine(DisableAttackBoolAfterDelay(0.1f));
             }
 
+            StartCoroutine(ResetMaterialAfterDelay(4f));
+
             Debug.Log("Attack performed!");
         }
     }
@@ -555,6 +578,20 @@ public class PlayerControls : MonoBehaviour
         {
             animator.SetBool("Attack", false);
         }
+    }
+
+    private IEnumerator ResetMaterialAfterDelay(float delay)
+    {
+        yield return new WaitForSeconds(delay);
+
+        if (playerRenderer != null && originalMaterial != null)
+        {
+            playerRenderer.material = originalMaterial;
+            Debug.Log("Material reset to original");
+        }
+
+        // i re-enable movement after the attack is finished
+        isAttacking = false;
     }
 
     void OnTriggerEnter(Collider other)
