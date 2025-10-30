@@ -2,7 +2,6 @@ using UnityEngine;
 using UnityEngine.InputSystem;
 using Unity.Cinemachine;
 using System.Collections;
-using UnityEngine.UIElements;
 
 public class PlayerControls : MonoBehaviour
 {
@@ -67,7 +66,7 @@ public class PlayerControls : MonoBehaviour
     [SerializeField] private float animationSensitivity = 2f;
 
     [Header("Background Audio")]
-    [SerializeField] private AudioSource backgroundAudio;
+    [SerializeField] BackgroundAudio backgroundAudio;
 
     private Rigidbody rb;
     public bool isGrounded;
@@ -530,6 +529,8 @@ public class PlayerControls : MonoBehaviour
                 animator.SetBool("Attack", true);
             }
 
+            backgroundAudio.SetVolume(0);
+
             if (audioSource != null && attackSound != null)
             {
                 audioSource.PlayOneShot(attackSound);
@@ -589,7 +590,7 @@ public class PlayerControls : MonoBehaviour
             playerRenderer.material = originalMaterial;
             Debug.Log("Material reset to original");
         }
-
+        backgroundAudio.SetVolume(0.05f);
         // i re-enable movement after the attack is finished
         isAttacking = false;
     }
