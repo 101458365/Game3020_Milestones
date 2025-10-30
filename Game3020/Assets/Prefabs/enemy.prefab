@@ -22,15 +22,15 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: -8679921383154817045, guid: e797e59e90ac2d043b5e913cdb325f37, type: 3}
       propertyPath: m_LocalPosition.x
-      value: -10
+      value: 9.5086
       objectReference: {fileID: 0}
     - target: {fileID: -8679921383154817045, guid: e797e59e90ac2d043b5e913cdb325f37, type: 3}
       propertyPath: m_LocalPosition.y
-      value: 7.64
+      value: -1.11
       objectReference: {fileID: 0}
     - target: {fileID: -8679921383154817045, guid: e797e59e90ac2d043b5e913cdb325f37, type: 3}
       propertyPath: m_LocalPosition.z
-      value: 6.276
+      value: 91.51285
       objectReference: {fileID: 0}
     - target: {fileID: -8679921383154817045, guid: e797e59e90ac2d043b5e913cdb325f37, type: 3}
       propertyPath: m_LocalRotation.w
@@ -68,6 +68,10 @@ PrefabInstance:
       propertyPath: m_IsActive
       value: 1
       objectReference: {fileID: 0}
+    - target: {fileID: 919132149155446097, guid: e797e59e90ac2d043b5e913cdb325f37, type: 3}
+      propertyPath: m_TagString
+      value: Enemy
+      objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
@@ -77,10 +81,19 @@ PrefabInstance:
       addedObject: {fileID: 2571560957823924423}
     - targetCorrespondingSourceObject: {fileID: 919132149155446097, guid: e797e59e90ac2d043b5e913cdb325f37, type: 3}
       insertIndex: -1
-      addedObject: {fileID: 1812850188278824519}
+      addedObject: {fileID: 891974617489597179}
     - targetCorrespondingSourceObject: {fileID: 919132149155446097, guid: e797e59e90ac2d043b5e913cdb325f37, type: 3}
       insertIndex: -1
-      addedObject: {fileID: 891974617489597179}
+      addedObject: {fileID: 1000115742190329862}
+    - targetCorrespondingSourceObject: {fileID: 919132149155446097, guid: e797e59e90ac2d043b5e913cdb325f37, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 1122048976620923720}
+    - targetCorrespondingSourceObject: {fileID: 919132149155446097, guid: e797e59e90ac2d043b5e913cdb325f37, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 8471020322937394557}
+    - targetCorrespondingSourceObject: {fileID: 919132149155446097, guid: e797e59e90ac2d043b5e913cdb325f37, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 3193004051395798126}
   m_SourcePrefab: {fileID: 100100000, guid: e797e59e90ac2d043b5e913cdb325f37, type: 3}
 --- !u!1 &91960979720659178 stripped
 GameObject:
@@ -108,7 +121,41 @@ BoxCollider:
   serializedVersion: 3
   m_Size: {x: 0.5687432, y: 1.9180385, z: 0.5187989}
   m_Center: {x: 0, y: 0.95, z: 0}
---- !u!54 &1812850188278824519
+--- !u!114 &891974617489597179
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 91960979720659178}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 8650c1a8c43758645a0e700b37c12ae3, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::EnemyBehavior
+  hitCount: 4
+--- !u!65 &1000115742190329862
+BoxCollider:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 91960979720659178}
+  m_Material: {fileID: 0}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_LayerOverridePriority: 0
+  m_IsTrigger: 0
+  m_ProvidesContacts: 0
+  m_Enabled: 1
+  serializedVersion: 3
+  m_Size: {x: 0.5687432, y: 1.9180385, z: 0.5187989}
+  m_Center: {x: 0, y: 0.95, z: 0}
+--- !u!54 &1122048976620923720
 Rigidbody:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -133,9 +180,9 @@ Rigidbody:
   m_UseGravity: 1
   m_IsKinematic: 0
   m_Interpolate: 0
-  m_Constraints: 112
+  m_Constraints: 126
   m_CollisionDetection: 0
---- !u!114 &891974617489597179
+--- !u!114 &8471020322937394557
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -148,3 +195,25 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::EnemyBehavior
   hitCount: 3
+--- !u!95 &3193004051395798126
+Animator:
+  serializedVersion: 7
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 91960979720659178}
+  m_Enabled: 1
+  m_Avatar: {fileID: 0}
+  m_Controller: {fileID: 9100000, guid: 40b901c61eb69064ebae318ff78a70e4, type: 2}
+  m_CullingMode: 0
+  m_UpdateMode: 0
+  m_ApplyRootMotion: 0
+  m_LinearVelocityBlending: 0
+  m_StabilizeFeet: 0
+  m_AnimatePhysics: 0
+  m_WarningMessage: 
+  m_HasTransformHierarchy: 1
+  m_AllowConstantClipSamplingOptimization: 1
+  m_KeepAnimatorStateOnDisable: 0
+  m_WriteDefaultValuesOnDisable: 0

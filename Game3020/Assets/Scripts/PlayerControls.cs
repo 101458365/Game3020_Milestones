@@ -599,7 +599,7 @@ public class PlayerControls : MonoBehaviour
     {
         if (other.CompareTag("Respawn"))
         {
-            transform.position = new Vector3(0, 2, -5);
+            transform.position = new Vector3(0, 2, -35);
             currentBhopSpeed = moveSpeed;
         }
     }
