@@ -599,8 +599,18 @@ public class PlayerControls : MonoBehaviour
     {
         if (other.CompareTag("Respawn"))
         {
+            if (GameManager.Instance != null)
+            {
+                GameManager.Instance.RegisterFall();
+            }
+
             transform.position = new Vector3(0, 2, -35);
             currentBhopSpeed = moveSpeed;
+
+            if (rb != null)
+            {
+                rb.linearVelocity = Vector3.zero;
+            }
         }
     }
 
