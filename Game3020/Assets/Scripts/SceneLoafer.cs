@@ -3,14 +3,16 @@ using UnityEngine.SceneManagement;
 
 public class SceneLoafer : MonoBehaviour
 {
+    [SerializeField] int sceneIndex;
     private void Start()
     {
         Cursor.visible = true;
         Cursor.lockState = CursorLockMode.None;
     }
-    public void LoadGameScene()
+    public void LoadGameScene(int index)
     {
-        SceneManager.LoadScene("SampleScene");
+        sceneIndex = index;
+        SceneManager.LoadScene(index);
     }
 
     public void QuitApplication()
