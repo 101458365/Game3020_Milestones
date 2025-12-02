@@ -10,29 +10,34 @@ public class BackgroundAudio : MonoBehaviour
 
     void Awake()
     {
+        audioSource = gameObject.AddComponent<AudioSource>();
+        audioSource.clip = backgroundMusic;
+        audioSource.volume = volume;
+        audioSource.loop = true;
         // Singleton pattern
-        if (Instance == null)
-        {
-            Instance = this;
-            DontDestroyOnLoad(gameObject);
+        //if (Instance == null)
+        //{
+        //    Instance = this;
+        //    DontDestroyOnLoad(gameObject);
 
-            audioSource = gameObject.AddComponent<AudioSource>();
-            audioSource.clip = backgroundMusic;
-            audioSource.volume = volume;
-            audioSource.loop = true;
-        }
-        else
-        {
-            Destroy(gameObject);
-        }
+        //    audioSource = gameObject.AddComponent<AudioSource>();
+        //    audioSource.clip = backgroundMusic;
+        //    audioSource.volume = volume;
+        //    audioSource.loop = true;
+        //}
+        //else
+        //{
+        //    Destroy(gameObject);
+        //}
     }
 
     void Start()
     {
-        if (Instance == this && backgroundMusic != null && !audioSource.isPlaying)
-        {
-            audioSource.Play();
-        }
+        audioSource.Play();
+        //if (Instance == this && backgroundMusic != null && !audioSource.isPlaying)
+        //{
+        //    audioSource.Play();
+        //}
     }
 
     public void SetVolume(float newVolume)

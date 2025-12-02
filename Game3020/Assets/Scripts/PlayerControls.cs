@@ -23,6 +23,7 @@ public class PlayerControls : MonoBehaviour
 
     [Header("Camera")]
     public CinemachineCamera freeLookCamera;
+    [SerializeField] private AttackCameraController attackCameraController;
 
     [Header("Combat Settings")]
     [SerializeField] private float attackRange = 2f;
@@ -123,13 +124,11 @@ public class PlayerControls : MonoBehaviour
 
     void Update()
     {
-        // Handle pause toggle
         if (Keyboard.current.escapeKey.wasPressedThisFrame)
         {
             TogglePause();
         }
 
-        // Don't update game logic if paused
         if (isPaused)
             return;
 
@@ -321,7 +320,6 @@ public class PlayerControls : MonoBehaviour
 
     void FixedUpdate()
     {
-        // Don't process physics if paused
         if (isPaused)
             return;
 
@@ -560,6 +558,12 @@ public class PlayerControls : MonoBehaviour
                 animator.SetBool("Attack", true);
             }
 
+            // trigger attack camera cutscene;
+            if (attackCameraController != null)
+            {
+                attackCameraController.PlayAttackCutscene();
+            }
+
             backgroundAudio.SetVolume(0);
 
             if (audioSource != null && attackSound != null)
@@ -625,17 +629,16 @@ public class PlayerControls : MonoBehaviour
     {
         if (other.CompareTag("Respawn"))
         {
-            // Register the fall with GameManager
+            // register the fall with GameManager;
             if (GameManager.Instance != null)
             {
                 GameManager.Instance.RegisterFall();
             }
 
-            // Respawn player
             transform.position = new Vector3(0, 2, -35);
             currentBhopSpeed = moveSpeed;
 
-            // Reset velocity to prevent falling again immediately
+            // we reset velocity to prevent falling again immediately;
             if (rb != null)
             {
                 rb.linearVelocity = Vector3.zero;
