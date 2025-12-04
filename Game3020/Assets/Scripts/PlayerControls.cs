@@ -150,7 +150,7 @@ public class PlayerControls : MonoBehaviour
         }
     }
 
-    void TogglePause()
+    public void TogglePause()
     {
         isPaused = !isPaused;
 
@@ -626,25 +626,35 @@ public class PlayerControls : MonoBehaviour
     }
 
     void OnTriggerEnter(Collider other)
+{
+    if (other.CompareTag("Respawn"))
     {
-        if (other.CompareTag("Respawn"))
+        // register the fall with GameManager;
+        if (GameManager.Instance != null)
         {
-            // register the fall with GameManager;
-            if (GameManager.Instance != null)
-            {
-                GameManager.Instance.RegisterFall();
-            }
-
+            GameManager.Instance.RegisterFall();
+            
+            // respawn at the last checkpoint instead of hardcoded position;
+            Vector3 respawnPosition = GameManager.Instance.GetCurrentCheckpoint();
+            transform.position = respawnPosition;
+            
+            Debug.Log($"Respawning at checkpoint: {respawnPosition}");
+        }
+        else
+        {
+            // fallback to default position if GameManager is missing;
             transform.position = new Vector3(0, 2, -35);
-            currentBhopSpeed = moveSpeed;
+            Debug.LogWarning("GameManager not found! Using default spawn position.");
+        }
 
-            // we reset velocity to prevent falling again immediately;
-            if (rb != null)
-            {
-                rb.linearVelocity = Vector3.zero;
-            }
+        // we reset speed and velocity;
+        currentBhopSpeed = moveSpeed;
+        if (rb != null)
+        {
+            rb.linearVelocity = Vector3.zero;
         }
     }
+}
 
     private void OnCollisionStay(Collision collision)
     {

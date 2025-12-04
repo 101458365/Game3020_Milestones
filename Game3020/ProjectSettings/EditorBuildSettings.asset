@@ -12,6 +12,9 @@ EditorBuildSettings:
     path: Assets/Scenes/SampleScene.unity
     guid: 99c9720ab356a0642a771bea13969a05
   - enabled: 1
+    path: Assets/Scenes/BhopLevel.unity
+    guid: 02ef2656f9f23c443a6984b7726672b4
+  - enabled: 1
     path: Assets/Scenes/WinScene.unity
     guid: 4a2a9a3956c84cd459cfdcfdb2930dd3
   - enabled: 1

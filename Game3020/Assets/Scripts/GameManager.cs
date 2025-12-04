@@ -13,10 +13,16 @@ public class GameManager : MonoBehaviour
     [Header("UI")]
     [SerializeField] private TextMeshProUGUI timerText;
     [SerializeField] private TextMeshProUGUI fallsText;
+    [SerializeField] private TextMeshProUGUI checkpointText;
 
     [Header("Scenes")]
     [SerializeField] private string loseSceneName = "LoseScene";
 
+    [Header("Checkpoint System")]
+    [SerializeField] private Vector3 defaultSpawnPosition = new Vector3(0, 2, -35);
+    [SerializeField] private float checkpointDisplayDuration = 2f;
+
+    private Vector3 currentCheckpoint;
     private int currentFalls = 0;
     private float timeRemaining;
     private bool gameOver = false;
@@ -32,7 +38,13 @@ public class GameManager : MonoBehaviour
     void Start()
     {
         timeRemaining = timeLimit;
+        currentCheckpoint = defaultSpawnPosition;
         UpdateUI();
+
+        if (checkpointText != null)
+        {
+            checkpointText.gameObject.SetActive(false);
+        }
     }
 
     void Update()
@@ -63,6 +75,33 @@ public class GameManager : MonoBehaviour
         }
     }
 
+    public void SetCheckpoint(Vector3 position)
+    {
+        currentCheckpoint = position;
+        Debug.Log($"Checkpoint saved at: {position}");
+
+        if (checkpointText != null)
+        {
+            checkpointText.text = "Checkpoint Saved!";
+            checkpointText.gameObject.SetActive(true);
+            CancelInvoke(nameof(HideCheckpointText));
+            Invoke(nameof(HideCheckpointText), checkpointDisplayDuration);
+        }
+    }
+
+    public Vector3 GetCurrentCheckpoint()
+    {
+        return currentCheckpoint;
+    }
+
+    private void HideCheckpointText()
+    {
+        if (checkpointText != null)
+        {
+            checkpointText.gameObject.SetActive(false);
+        }
+    }
+
     void UpdateUI()
     {
         if (timerText != null)
@@ -73,6 +112,8 @@ public class GameManager : MonoBehaviour
 
             if (timeRemaining <= 10f)
                 timerText.color = Color.red;
+            else
+                timerText.color = Color.white;
         }
 
         if (fallsText != null)
@@ -81,6 +122,8 @@ public class GameManager : MonoBehaviour
 
             if (currentFalls >= maxFalls - 1)
                 fallsText.color = Color.red;
+            else
+                fallsText.color = Color.white;
         }
     }
 
@@ -99,5 +142,11 @@ public class GameManager : MonoBehaviour
     public bool IsGameOver()
     {
         return gameOver;
+    }
+
+    public void ResetCheckpoint()
+    {
+        currentCheckpoint = defaultSpawnPosition;
+        Debug.Log("Checkpoint reset to default spawn position");
     }
 }
