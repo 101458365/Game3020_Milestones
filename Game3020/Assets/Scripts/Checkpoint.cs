@@ -4,8 +4,8 @@ public class Checkpoint : MonoBehaviour
 {
     [Header("Checkpoint Settings")]
     [SerializeField] private bool isActivated = false;
-    [SerializeField] private Color inactiveColor = Color.gray;
-    [SerializeField] private Color activeColor = Color.green;
+    [SerializeField] private Material inactiveColor;
+    [SerializeField] private Material activeColor;
 
     [Header("Visual Feedback")]
     [SerializeField] private GameObject visualEffect;
@@ -14,6 +14,11 @@ public class Checkpoint : MonoBehaviour
     private void Start()
     {
         UpdateVisuals();
+        checkpointRenderer = GetComponent<Renderer>();
+        if (checkpointRenderer == null)
+        {
+            checkpointRenderer = GetComponentInChildren<Renderer>();
+        }
     }
 
     private void OnTriggerEnter(Collider other)
@@ -59,13 +64,11 @@ public class Checkpoint : MonoBehaviour
     {
         if (checkpointRenderer != null)
         {
-            Material mat = checkpointRenderer.material;
-            mat.color = isActivated ? activeColor : inactiveColor;
+            checkpointRenderer.material = inactiveColor;
 
             if (isActivated)
             {
-                mat.EnableKeyword("_EMISSION");
-                mat.SetColor("_EmissionColor", activeColor * 0.5f);
+               checkpointRenderer.material = activeColor;
             }
         }
     }
@@ -91,7 +94,7 @@ public class Checkpoint : MonoBehaviour
 
     private void OnDrawGizmos()
     {
-        Gizmos.color = isActivated ? activeColor : inactiveColor;
+        //Gizmos.color = isActivated ? activeColor : inactiveColor;
         Gizmos.DrawWireSphere(transform.position, 1f);
 
         Gizmos.color = new Color(Gizmos.color.r, Gizmos.color.g, Gizmos.color.b, 0.3f);
