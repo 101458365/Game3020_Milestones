@@ -9,11 +9,13 @@ public class SceneLoafer : MonoBehaviour
     {
         Time.timeScale = 1f;
     }
+
     private void Start()
     {
         Cursor.visible = true;
         Cursor.lockState = CursorLockMode.None;
     }
+
     public void LoadGameScene(int index)
     {
         sceneIndex = index;
@@ -25,7 +27,7 @@ public class SceneLoafer : MonoBehaviour
 #if UNITY_EDITOR
         UnityEditor.EditorApplication.isPlaying = false;
 #else
-            Application.Quit();
+        Application.Quit();
 #endif
     }
 }

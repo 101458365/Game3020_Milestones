@@ -141,9 +141,9 @@ GameObject:
   - component: {fileID: 464873393369381453}
   - component: {fileID: 5041497691087375583}
   - component: {fileID: 9196802398048652070}
-  - component: {fileID: 1682628330808234573}
   - component: {fileID: 4134253783367615071}
   - component: {fileID: 3520960870739577901}
+  - component: {fileID: 2288961048057746675}
   m_Layer: 0
   m_Name: Player
   m_TagString: Player
@@ -181,16 +181,18 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 47fc9e5c889880c4e899f8a49ca438d1, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::PlayerControls
-  moveSpeed: 10
-  jumpForce: 8
+  moveSpeed: 15
+  jumpForce: 10
   rotationSpeed: 270
-  airStrafeAcceleration: 35
-  airStrafeMaxSpeed: 30
-  airControl: 10
+  airStrafeAcceleration: 15
+  airStrafeMaxSpeed: 100
+  airControl: 1000
   bhopSpeedBoost: 1.2
   maxBhopSpeed: 35
   bhopTimingWindow: 0.15
   speedDecayRate: 0.95
+  jumpBufferTime: 0.1
+  coyoteTime: 0.15
   freeLookCamera: {fileID: 0}
   attackCameraController: {fileID: 0}
   attackRange: 0
@@ -202,6 +204,7 @@ MonoBehaviour:
   attackMaterials:
   - {fileID: 2100000, guid: 8192e08fa321e8b468378fdc6f81e982, type: 2}
   playerRenderer: {fileID: 2926306138147035815}
+  attackMovementReduction: 0.1
   footstepsSound: {fileID: 2890505081692694291}
   sprintSound: {fileID: 1237340534567982463}
   sprintSpeedThreshold: 15
@@ -217,6 +220,7 @@ MonoBehaviour:
   wallRunGravity: 0.05
   jumpCooldown: 0.1
   wallRunForceMultiplier: 100
+  wallJumpForce: 20
   platformLayer:
     serializedVersion: 2
     m_Bits: 320
@@ -290,27 +294,6 @@ MonoBehaviour:
   m_DefaultActionMap: 
   m_SplitScreenIndex: -1
   m_Camera: {fileID: 0}
---- !u!65 &1682628330808234573
-BoxCollider:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 4772081056843921994}
-  m_Material: {fileID: 0}
-  m_IncludeLayers:
-    serializedVersion: 2
-    m_Bits: 0
-  m_ExcludeLayers:
-    serializedVersion: 2
-    m_Bits: 0
-  m_LayerOverridePriority: 0
-  m_IsTrigger: 0
-  m_ProvidesContacts: 0
-  m_Enabled: 1
-  serializedVersion: 3
-  m_Size: {x: 0.5, y: 1.85, z: 0.5}
-  m_Center: {x: 0, y: 0.9, z: 0}
 --- !u!95 &4134253783367615071
 Animator:
   serializedVersion: 7
@@ -355,7 +338,7 @@ AudioSource:
   Priority: 128
   DopplerLevel: 1
   MinDistance: 1
-  MaxDistance: 500
+  MaxDistance: 73.895935
   Pan2D: 0
   rolloffMode: 0
   BypassEffects: 0
@@ -430,6 +413,29 @@ AudioSource:
     m_PreInfinity: 2
     m_PostInfinity: 2
     m_RotationOrder: 4
+--- !u!136 &2288961048057746675
+CapsuleCollider:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4772081056843921994}
+  m_Material: {fileID: 0}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_LayerOverridePriority: 0
+  m_IsTrigger: 0
+  m_ProvidesContacts: 0
+  m_Enabled: 1
+  serializedVersion: 2
+  m_Radius: 0.14252996
+  m_Height: 1.8474119
+  m_Direction: 1
+  m_Center: {x: 0, y: 0.8929372, z: 0.029948711}
 --- !u!1 &7498420719115431932
 GameObject:
   m_ObjectHideFlags: 0

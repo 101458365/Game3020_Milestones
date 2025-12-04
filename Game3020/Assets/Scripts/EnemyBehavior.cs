@@ -20,6 +20,10 @@ public class EnemyBehavior : MonoBehaviour
     [SerializeField] private GameObject defeatEffect;
     [SerializeField] private float defeatDelay = 3f;
 
+    [Header("Look At Player Settings")]
+    [SerializeField] private float rotationSpeed = 5f;
+    [SerializeField] private bool smoothRotation = true;
+
     private bool isDefeated = false;
     private bool isPerformingAttack = false;
     private bool playerInZone = false;
@@ -27,8 +31,12 @@ public class EnemyBehavior : MonoBehaviour
     private Renderer enemyRenderer;
     private Material originalMaterial;
 
+    private Transform cachedTransform;
+
     private void Start()
     {
+        cachedTransform = transform;
+
         if (animator == null)
         {
             animator = GetComponent<Animator>();
@@ -64,14 +72,17 @@ public class EnemyBehavior : MonoBehaviour
 
     private void Update()
     {
-        if (playerInZone && playerInTrigger != null && !isDefeated && !isPerformingAttack && !hasBeenDefeated)
+        // look at player when in zone;
+        if (playerInZone && playerInTrigger != null && !isDefeated && !isPerformingAttack)
         {
+            LookAtPlayer();
+
             Animator playerAnimator = playerInTrigger.GetComponent<Animator>();
             if (playerAnimator != null)
             {
                 bool isPlayerAttacking = playerAnimator.GetBool("Attack");
 
-                if (isPlayerAttacking)
+                if (isPlayerAttacking && !hasBeenDefeated)
                 {
                     Debug.Log("Player is attacking! Enemy responding to dance battle!");
 
@@ -83,6 +94,34 @@ public class EnemyBehavior : MonoBehaviour
             {
                 Debug.LogWarning("Player animator not found!");
             }
+        }
+    }
+
+    private void LookAtPlayer()
+    {
+        if (playerInTrigger == null) return;
+
+        // get direction to player;
+        Vector3 directionToPlayer = playerInTrigger.transform.position - cachedTransform.position;
+        directionToPlayer.y = 0f; // keep enemy upright;
+
+        if (directionToPlayer.magnitude < 0.1f) return;
+
+        // calculate target rotation;
+        Quaternion targetRotation = Quaternion.LookRotation(directionToPlayer);
+
+        // apply rotation;
+        if (smoothRotation)
+        {
+            cachedTransform.rotation = Quaternion.Slerp(
+                cachedTransform.rotation,
+                targetRotation,
+                rotationSpeed * Time.deltaTime
+            );
+        }
+        else
+        {
+            cachedTransform.rotation = targetRotation;
         }
     }
 
@@ -143,9 +182,9 @@ public class EnemyBehavior : MonoBehaviour
 
             if (selectedEffect != null)
             {
-                Vector3 effectPosition = transform.position + transform.forward * attackRange;
-                GameObject effect = Instantiate(selectedEffect, effectPosition, transform.rotation);
-                effect.transform.SetParent(transform);
+                Vector3 effectPosition = cachedTransform.position + cachedTransform.forward * attackRange;
+                GameObject effect = Instantiate(selectedEffect, effectPosition, cachedTransform.rotation);
+                effect.transform.SetParent(cachedTransform);
                 Destroy(effect, defeatDelay);
             }
         }
@@ -169,12 +208,20 @@ public class EnemyBehavior : MonoBehaviour
 
         if (defeatEffect != null)
         {
-            GameObject effect = Instantiate(defeatEffect, transform.position, Quaternion.identity);
+            GameObject effect = Instantiate(defeatEffect, cachedTransform.position, Quaternion.identity);
             Destroy(effect, 3f);
         }
 
         gameObject.SetActive(false);
 
         yield return null;
+    }
+
+    private void OnDestroy()
+    {
+        if (enemyRenderer != null && originalMaterial != null)
+        {
+            Destroy(originalMaterial);
+        }
     }
 }

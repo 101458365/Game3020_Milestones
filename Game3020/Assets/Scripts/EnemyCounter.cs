@@ -16,6 +16,8 @@ public class EnemyCounter : MonoBehaviour
     public string winSceneName = "WinScene";
     public float delayBeforeLoading = 1f;
 
+    private bool winTriggered = false;
+
     void Awake()
     {
         if (Instance == null)
@@ -26,48 +28,46 @@ public class EnemyCounter : MonoBehaviour
 
     void Start()
     {
-        UpdateUI();
+        int activeCount = CountActiveEnemies();
+        UpdateUI(activeCount);
     }
 
     void Update()
     {
-        UpdateUI();
-        CheckWinCondition();
+        // we only count enemies once per frame and use that result;
+        int activeCount = CountActiveEnemies();
+        UpdateUI(activeCount);
+        CheckWinCondition(activeCount);
     }
 
-    void UpdateUI()
+    int CountActiveEnemies()
     {
-        int activeCount = 0;
-
+        int count = 0;
         for (int i = 0; i < enemies.Length; i++)
         {
             if (enemies[i] != null && enemies[i].activeSelf)
             {
-                activeCount++;
+                count++;
             }
         }
+        return count;
+    }
 
+    void UpdateUI(int activeCount)
+    {
         if (counterText != null)
         {
             counterText.text = "Enemies: " + activeCount;
         }
     }
 
-    void CheckWinCondition()
+    void CheckWinCondition(int activeCount)
     {
-        bool allDefeated = true;
+        if (winTriggered) return;
 
-        for (int i = 0; i < enemies.Length; i++)
+        if (activeCount == 0)
         {
-            if (enemies[i] != null && enemies[i].activeSelf)
-            {
-                allDefeated = false;
-                break;
-            }
-        }
-
-        if (allDefeated)
-        {
+            winTriggered = true;
             OnAllEnemiesDefeated();
         }
     }

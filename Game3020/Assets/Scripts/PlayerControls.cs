@@ -9,6 +9,7 @@ public class PlayerControls : MonoBehaviour
     [SerializeField] private float moveSpeed = 10f;
     [SerializeField] private float jumpForce = 8f;
     [SerializeField] private float rotationSpeed = 720f;
+    [SerializeField] private float sidewaysSpeedMultiplier = 0.3f;
 
     [Header("Airstrafe Settings")]
     [SerializeField] private float airStrafeAcceleration = 50f;
@@ -20,10 +21,18 @@ public class PlayerControls : MonoBehaviour
     [SerializeField] private float maxBhopSpeed = 25f;
     [SerializeField] private float bhopTimingWindow = 0.15f;
     [SerializeField] private float speedDecayRate = 0.95f;
+    [SerializeField] private float jumpBufferTime = 0.1f;
+    [SerializeField] private float coyoteTime = 0.15f;
 
     [Header("Camera")]
     public CinemachineCamera freeLookCamera;
     [SerializeField] private AttackCameraController attackCameraController;
+
+    [Header("Camera Shake - 130 BPM During Attack")]
+    [SerializeField] private float shakeIntensity = 0.1f;
+    [SerializeField] private float bpm = 130f;
+    private float beatInterval;
+    private bool isShaking = false;
 
     [Header("Combat Settings")]
     [SerializeField] private float attackRange = 2f;
@@ -33,6 +42,7 @@ public class PlayerControls : MonoBehaviour
     [SerializeField] private AudioSource audioSource;
     [SerializeField] private Material[] attackMaterials;
     [SerializeField] private Renderer playerRenderer;
+    [SerializeField] private float attackMovementReduction = 0.1f;
 
     [Header("Audio - Footsteps")]
     [SerializeField] private AudioSource footstepsSound;
@@ -51,6 +61,7 @@ public class PlayerControls : MonoBehaviour
     [SerializeField] private float wallRunGravity = 1f;
     [SerializeField] private float jumpCooldown = 0.1f;
     [SerializeField] private float wallRunForceMultiplier = 100f;
+    [SerializeField] private float wallJumpForce = 20f;
 
     [Header("Movement Blocking")]
     [SerializeField] private LayerMask platformLayer;
@@ -67,7 +78,7 @@ public class PlayerControls : MonoBehaviour
     [SerializeField] private float animationSensitivity = 2f;
 
     [Header("Background Audio")]
-    [SerializeField] BackgroundAudio backgroundAudio;
+    [SerializeField] private BackgroundAudio backgroundAudio;
 
     [Header("UI - Pause Menu")]
     [SerializeField] private GameObject pauseMenuPanel;
@@ -83,6 +94,10 @@ public class PlayerControls : MonoBehaviour
     private bool jumpRequested = false;
     private float forwardSpeed = 0f;
 
+    // input buffering;
+    private float jumpBufferCounter = 0f;
+    private float coyoteTimeCounter = 0f;
+
     private bool wallRunning = false;
     private bool readyToWallrun = true;
     private bool readyToJump = true;
@@ -95,10 +110,26 @@ public class PlayerControls : MonoBehaviour
     private Vector3[] blockedDirections;
     private Material originalMaterial;
 
+    // cached components for performance;
+    private Transform cachedTransform;
+    private Transform cameraTransform;
+    private Vector3 originalCameraLocalPos;
+
     void Start()
     {
         rb = GetComponent<Rigidbody>();
         animator = GetComponent<Animator>();
+        cachedTransform = transform;
+
+        // cache camera transform;
+        if (freeLookCamera != null)
+        {
+            cameraTransform = freeLookCamera.transform;
+            originalCameraLocalPos = cameraTransform.localPosition;
+        }
+
+        // calculate beat interval for 130 BPM;
+        beatInterval = 60f / bpm;
 
         if (animator == null)
         {
@@ -138,6 +169,24 @@ public class PlayerControls : MonoBehaviour
         UpdateAnimationParameters();
         RotateTowardsCameraDirection();
         UpdateFootstepSounds();
+
+        // update coyote time;
+        if (isGrounded)
+            coyoteTimeCounter = coyoteTime;
+        else
+            coyoteTimeCounter -= Time.deltaTime;
+
+        // update jump buffer;
+        if (jumpBufferCounter > 0)
+        {
+            jumpBufferCounter -= Time.deltaTime;
+
+            if (isGrounded && readyToJump)
+            {
+                PerformJump();
+                jumpBufferCounter = 0;
+            }
+        }
 
         if (!isGrounded)
         {
@@ -248,7 +297,7 @@ public class PlayerControls : MonoBehaviour
             bool hitDetected = false;
             for (float height = heightStart; height <= heightEnd; height += heightStep)
             {
-                Vector3 rayOrigin = transform.position + Vector3.up * height;
+                Vector3 rayOrigin = cachedTransform.position + Vector3.up * height;
                 if (Physics.Raycast(rayOrigin, rayDirection, blockCheckDistance, platformLayer))
                 {
                     hitDetected = true;
@@ -301,8 +350,8 @@ public class PlayerControls : MonoBehaviour
         if (cameraForward.magnitude > 0.1f)
         {
             float targetAngle = Mathf.Atan2(cameraForward.x, cameraForward.z) * Mathf.Rad2Deg;
-            float angle = Mathf.MoveTowardsAngle(transform.eulerAngles.y, targetAngle, rotationSpeed * Time.deltaTime);
-            transform.rotation = Quaternion.AngleAxis(angle, Vector3.up);
+            float angle = Mathf.MoveTowardsAngle(cachedTransform.eulerAngles.y, targetAngle, rotationSpeed * Time.deltaTime);
+            cachedTransform.rotation = Quaternion.AngleAxis(angle, Vector3.up);
         }
     }
 
@@ -338,8 +387,13 @@ public class PlayerControls : MonoBehaviour
         }
         else
         {
+            // reduce movement during attacks but don't fully stop;
             Vector3 currentVelocity = rb.linearVelocity;
-            rb.linearVelocity = new Vector3(0f, currentVelocity.y, 0f);
+            rb.linearVelocity = new Vector3(
+                currentVelocity.x * attackMovementReduction,
+                currentVelocity.y,
+                currentVelocity.z * attackMovementReduction
+            );
         }
 
         wasOnGround = isGrounded;
@@ -350,11 +404,11 @@ public class PlayerControls : MonoBehaviour
         bool groundedNow = false;
 
         Vector3[] checkPositions = {
-            transform.position,
-            transform.position + Vector3.forward * 0.3f,
-            transform.position + Vector3.back * 0.3f,
-            transform.position + Vector3.left * 0.3f,
-            transform.position + Vector3.right * 0.3f
+            cachedTransform.position,
+            cachedTransform.position + Vector3.forward * 0.3f,
+            cachedTransform.position + Vector3.back * 0.3f,
+            cachedTransform.position + Vector3.left * 0.3f,
+            cachedTransform.position + Vector3.right * 0.3f
         };
 
         foreach (Vector3 pos in checkPositions)
@@ -402,7 +456,12 @@ public class PlayerControls : MonoBehaviour
             cameraRight.y = 0f;
             cameraForwards.Normalize();
             cameraRight.Normalize();
-            Vector3 moveDirection = (cameraRight * moveInput.x + cameraForwards * moveInput.y).normalized;
+
+            // apply sideways movement reduction;
+            float forwardInput = moveInput.y;
+            float sidewaysInput = moveInput.x * sidewaysSpeedMultiplier;
+
+            Vector3 moveDirection = (cameraRight * sidewaysInput + cameraForwards * forwardInput).normalized;
 
             if (IsDirectionBlocked(moveDirection))
             {
@@ -459,7 +518,11 @@ public class PlayerControls : MonoBehaviour
             cameraForwards.Normalize();
             cameraRight.Normalize();
 
-            Vector3 wishDirection = (cameraRight * moveInput.x + cameraForwards * moveInput.y).normalized;
+            // apply sideways movement reduction in air too;
+            float forwardInput = moveInput.y;
+            float sidewaysInput = moveInput.x * sidewaysSpeedMultiplier;
+
+            Vector3 wishDirection = (cameraRight * sidewaysInput + cameraForwards * forwardInput).normalized;
 
             if (moveInput.y < -0.5f)
             {
@@ -564,7 +627,16 @@ public class PlayerControls : MonoBehaviour
                 attackCameraController.PlayAttackCutscene();
             }
 
-            backgroundAudio.SetVolume(0);
+            // start camera shake loop synced to 130 BPM;
+            if (!isShaking)
+            {
+                StartCoroutine(CameraShakeDuringAttack());
+            }
+
+            if (backgroundAudio != null)
+            {
+                backgroundAudio.SetVolume(0);
+            }
 
             if (audioSource != null && attackSound != null)
             {
@@ -585,11 +657,11 @@ public class PlayerControls : MonoBehaviour
 
                 if (selectedEffect != null)
                 {
-                    Vector3 effectLocation = new Vector3(transform.position.x, transform.position.y, transform.position.z);
-                    Vector3 effectPosition = effectLocation + transform.forward * attackRange;
-                    GameObject effect = Instantiate(selectedEffect, effectPosition, transform.rotation);
+                    Vector3 effectLocation = new Vector3(cachedTransform.position.x, cachedTransform.position.y, cachedTransform.position.z);
+                    Vector3 effectPosition = effectLocation + cachedTransform.forward * attackRange;
+                    GameObject effect = Instantiate(selectedEffect, effectPosition, cachedTransform.rotation);
 
-                    effect.transform.SetParent(transform);
+                    effect.transform.SetParent(cachedTransform);
                     Destroy(effect, 4f);
                 }
 
@@ -621,40 +693,100 @@ public class PlayerControls : MonoBehaviour
             playerRenderer.material = originalMaterial;
             Debug.Log("Material reset to original");
         }
-        backgroundAudio.SetVolume(0.05f);
+
+        if (backgroundAudio != null)
+        {
+            backgroundAudio.SetVolume(0.05f);
+        }
+
         isAttacking = false;
+        isShaking = false; // stop shaking when attack ends;
+    }
+
+    private IEnumerator CameraShakeDuringAttack()
+    {
+        if (cameraTransform == null) yield break;
+
+        isShaking = true;
+        float attackDuration = 4f; // matches attack duration;
+        float elapsed = 0f;
+        float nextBeatTime = 0f;
+
+        while (elapsed < attackDuration && isShaking)
+        {
+            // shake on each beat;
+            if (elapsed >= nextBeatTime)
+            {
+                StartCoroutine(SingleBeatShake());
+                nextBeatTime += beatInterval;
+            }
+
+            elapsed += Time.deltaTime;
+            yield return null;
+        }
+
+        // ensure camera returns to original position;
+        if (cameraTransform != null)
+        {
+            cameraTransform.localPosition = originalCameraLocalPos;
+        }
+
+        isShaking = false;
+    }
+
+    private IEnumerator SingleBeatShake()
+    {
+        if (cameraTransform == null) yield break;
+
+        float elapsed = 0f;
+        float shakeDuration = 0.1f; // quick shake per beat;
+
+        while (elapsed < shakeDuration)
+        {
+            // random offset for shake;
+            float offsetX = Random.Range(-1f, 1f) * shakeIntensity;
+            float offsetY = Random.Range(-1f, 1f) * shakeIntensity;
+
+            cameraTransform.localPosition = originalCameraLocalPos + new Vector3(offsetX, offsetY, 0f);
+
+            elapsed += Time.deltaTime;
+            yield return null;
+        }
+
+        // reset to original position;
+        cameraTransform.localPosition = originalCameraLocalPos;
     }
 
     void OnTriggerEnter(Collider other)
-{
-    if (other.CompareTag("Respawn"))
     {
-        // register the fall with GameManager;
-        if (GameManager.Instance != null)
+        if (other.CompareTag("Respawn"))
         {
-            GameManager.Instance.RegisterFall();
-            
-            // respawn at the last checkpoint instead of hardcoded position;
-            Vector3 respawnPosition = GameManager.Instance.GetCurrentCheckpoint();
-            transform.position = respawnPosition;
-            
-            Debug.Log($"Respawning at checkpoint: {respawnPosition}");
-        }
-        else
-        {
-            // fallback to default position if GameManager is missing;
-            transform.position = new Vector3(0, 2, -35);
-            Debug.LogWarning("GameManager not found! Using default spawn position.");
-        }
+            // register the fall with GameManager;
+            if (GameManager.Instance != null)
+            {
+                GameManager.Instance.RegisterFall();
 
-        // we reset speed and velocity;
-        currentBhopSpeed = moveSpeed;
-        if (rb != null)
-        {
-            rb.linearVelocity = Vector3.zero;
+                // respawn at the last checkpoint instead of hardcoded position;
+                Vector3 respawnPosition = GameManager.Instance.GetCurrentCheckpoint();
+                cachedTransform.position = respawnPosition;
+
+                Debug.Log($"Respawning at checkpoint: {respawnPosition}");
+            }
+            else
+            {
+                // fallback to default position if GameManager is missing;
+                cachedTransform.position = new Vector3(0, 2, -35);
+                Debug.LogWarning("GameManager not found! Using default spawn position.");
+            }
+
+            // we reset speed and velocity;
+            currentBhopSpeed = moveSpeed;
+            if (rb != null)
+            {
+                rb.linearVelocity = Vector3.zero;
+            }
         }
     }
-}
 
     private void OnCollisionStay(Collision collision)
     {
@@ -704,7 +836,7 @@ public class PlayerControls : MonoBehaviour
 
         if (wallRunning)
         {
-            rb.AddForce(wallNormalVector * jumpForce * 3f, ForceMode.Impulse);
+            rb.AddForce(wallNormalVector * wallJumpForce, ForceMode.Impulse);
             wallRunning = false;
             Debug.Log("Wall jump performed");
         }
@@ -723,20 +855,30 @@ public class PlayerControls : MonoBehaviour
 
     public void OnJump(InputValue value)
     {
-        if (value.isPressed && (isGrounded || wallRunning) && readyToJump)
+        if (value.isPressed)
         {
-            if (isGrounded && timeLeftGround <= bhopTimingWindow)
-            {
-                currentBhopSpeed = Mathf.Min(currentBhopSpeed * bhopSpeedBoost, maxBhopSpeed);
-                Debug.Log($"Good bhop! Speed: {currentBhopSpeed}");
-            }
-            else if (isGrounded)
-            {
-                currentBhopSpeed = moveSpeed;
-            }
+            jumpBufferCounter = jumpBufferTime;
 
-            jumpRequested = true;
-            PerformJump();
+            if ((isGrounded || coyoteTimeCounter > 0f) && readyToJump)
+            {
+                if (isGrounded && timeLeftGround <= bhopTimingWindow)
+                {
+                    currentBhopSpeed = Mathf.Min(currentBhopSpeed * bhopSpeedBoost, maxBhopSpeed);
+                    Debug.Log($"Good bhop! Speed: {currentBhopSpeed}");
+                }
+                else if (isGrounded)
+                {
+                    currentBhopSpeed = moveSpeed;
+                }
+
+                jumpRequested = true;
+                PerformJump();
+            }
+            else if (wallRunning && readyToJump)
+            {
+                jumpRequested = true;
+                PerformJump();
+            }
         }
     }
 
@@ -750,24 +892,26 @@ public class PlayerControls : MonoBehaviour
 
     void OnDrawGizmosSelected()
     {
+        Transform t = cachedTransform != null ? cachedTransform : transform;
+
         Gizmos.color = Color.red;
-        Vector3 newAttackPosition = new Vector3(transform.position.x, transform.position.y + 2, transform.position.z);
-        Vector3 attackPosition = newAttackPosition + transform.forward * (attackRange * 0.5f);
+        Vector3 newAttackPosition = new Vector3(t.position.x, t.position.y + 2, t.position.z);
+        Vector3 attackPosition = newAttackPosition + t.forward * (attackRange * 0.5f);
         Gizmos.DrawWireSphere(attackPosition, attackRange);
 
         if (wallRunning)
         {
             Gizmos.color = Color.blue;
-            Gizmos.DrawRay(transform.position, wallNormalVector * 2f);
+            Gizmos.DrawRay(t.position, wallNormalVector * 2f);
         }
 
         Gizmos.color = isGrounded ? Color.green : Color.red;
         Vector3[] checkPositions = {
-            transform.position,
-            transform.position + Vector3.forward * 0.3f,
-            transform.position + Vector3.back * 0.3f,
-            transform.position + Vector3.left * 0.3f,
-            transform.position + Vector3.right * 0.3f
+            t.position,
+            t.position + Vector3.forward * 0.3f,
+            t.position + Vector3.back * 0.3f,
+            t.position + Vector3.left * 0.3f,
+            t.position + Vector3.right * 0.3f
         };
 
         foreach (Vector3 pos in checkPositions)
@@ -787,7 +931,7 @@ public class PlayerControls : MonoBehaviour
 
             for (float height = heightStart; height <= heightEnd; height += heightStep)
             {
-                Vector3 rayOrigin = transform.position + Vector3.up * height;
+                Vector3 rayOrigin = t.position + Vector3.up * height;
                 Gizmos.DrawRay(rayOrigin, rayDirection * blockCheckDistance);
             }
         }
@@ -801,7 +945,7 @@ public class PlayerControls : MonoBehaviour
                 {
                     for (float height = heightStart; height <= heightEnd; height += heightStep)
                     {
-                        Vector3 rayOrigin = transform.position + Vector3.up * height;
+                        Vector3 rayOrigin = t.position + Vector3.up * height;
                         Gizmos.DrawRay(rayOrigin, blockedDirections[i] * blockCheckDistance);
                     }
                 }

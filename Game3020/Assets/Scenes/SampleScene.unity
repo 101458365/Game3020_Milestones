@@ -2116,7 +2116,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 4257352274866142477, guid: cda6450a692293e4c8223185b5677e04, type: 3}
       propertyPath: m_LocalPosition.y
-      value: 2.533
+      value: 2.13
       objectReference: {fileID: 0}
     - target: {fileID: 4257352274866142477, guid: cda6450a692293e4c8223185b5677e04, type: 3}
       propertyPath: m_LocalPosition.z
@@ -2383,7 +2383,7 @@ MonoBehaviour:
   m_OnClick:
     m_PersistentCalls:
       m_Calls:
-      - m_Target: {fileID: 0}
+      - m_Target: {fileID: 1403786066}
         m_TargetAssemblyTypeName: SceneLoafer, Assembly-CSharp
         m_MethodName: LoadGameScene
         m_Mode: 3
@@ -3546,83 +3546,6 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1801992378}
   m_CullTransparentMesh: 1
---- !u!1001 &1807927638
-PrefabInstance:
-  m_ObjectHideFlags: 0
-  serializedVersion: 2
-  m_Modification:
-    serializedVersion: 3
-    m_TransformParent: {fileID: 0}
-    m_Modifications:
-    - target: {fileID: 1268816392230509801, guid: cda6450a692293e4c8223185b5677e04, type: 3}
-      propertyPath: m_Name
-      value: platform
-      objectReference: {fileID: 0}
-    - target: {fileID: 1268816392230509801, guid: cda6450a692293e4c8223185b5677e04, type: 3}
-      propertyPath: m_Layer
-      value: 8
-      objectReference: {fileID: 0}
-    - target: {fileID: 4257352274866142477, guid: cda6450a692293e4c8223185b5677e04, type: 3}
-      propertyPath: m_LocalScale.x
-      value: 4.2577
-      objectReference: {fileID: 0}
-    - target: {fileID: 4257352274866142477, guid: cda6450a692293e4c8223185b5677e04, type: 3}
-      propertyPath: m_LocalScale.y
-      value: 0.85369
-      objectReference: {fileID: 0}
-    - target: {fileID: 4257352274866142477, guid: cda6450a692293e4c8223185b5677e04, type: 3}
-      propertyPath: m_LocalScale.z
-      value: 5.5956
-      objectReference: {fileID: 0}
-    - target: {fileID: 4257352274866142477, guid: cda6450a692293e4c8223185b5677e04, type: 3}
-      propertyPath: m_LocalPosition.x
-      value: 5.6
-      objectReference: {fileID: 0}
-    - target: {fileID: 4257352274866142477, guid: cda6450a692293e4c8223185b5677e04, type: 3}
-      propertyPath: m_LocalPosition.y
-      value: 1.24
-      objectReference: {fileID: 0}
-    - target: {fileID: 4257352274866142477, guid: cda6450a692293e4c8223185b5677e04, type: 3}
-      propertyPath: m_LocalPosition.z
-      value: -21.68
-      objectReference: {fileID: 0}
-    - target: {fileID: 4257352274866142477, guid: cda6450a692293e4c8223185b5677e04, type: 3}
-      propertyPath: m_LocalRotation.w
-      value: -0.2503782
-      objectReference: {fileID: 0}
-    - target: {fileID: 4257352274866142477, guid: cda6450a692293e4c8223185b5677e04, type: 3}
-      propertyPath: m_LocalRotation.x
-      value: -0.9681481
-      objectReference: {fileID: 0}
-    - target: {fileID: 4257352274866142477, guid: cda6450a692293e4c8223185b5677e04, type: 3}
-      propertyPath: m_LocalRotation.y
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 4257352274866142477, guid: cda6450a692293e4c8223185b5677e04, type: 3}
-      propertyPath: m_LocalRotation.z
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 4257352274866142477, guid: cda6450a692293e4c8223185b5677e04, type: 3}
-      propertyPath: m_LocalEulerAnglesHint.x
-      value: -4529
-      objectReference: {fileID: 0}
-    - target: {fileID: 4257352274866142477, guid: cda6450a692293e4c8223185b5677e04, type: 3}
-      propertyPath: m_LocalEulerAnglesHint.y
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 4257352274866142477, guid: cda6450a692293e4c8223185b5677e04, type: 3}
-      propertyPath: m_LocalEulerAnglesHint.z
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 4690765293121998741, guid: cda6450a692293e4c8223185b5677e04, type: 3}
-      propertyPath: 'm_Materials.Array.data[0]'
-      value: 
-      objectReference: {fileID: 2100000, guid: ca4792a23e7572b4c9c0fa9a4a86ec9d, type: 2}
-    m_RemovedComponents: []
-    m_RemovedGameObjects: []
-    m_AddedGameObjects: []
-    m_AddedComponents: []
-  m_SourcePrefab: {fileID: 100100000, guid: cda6450a692293e4c8223185b5677e04, type: 3}
 --- !u!1 &1809497185
 GameObject:
   m_ObjectHideFlags: 0
@@ -4178,6 +4101,30 @@ PrefabInstance:
     m_TransformParent: {fileID: 0}
     m_Modifications:
     - target: {fileID: 464873393369381453, guid: 3f337cc59b3f36e478d488e0ea44c600, type: 3}
+      propertyPath: heightEnd
+      value: 3.8
+      objectReference: {fileID: 0}
+    - target: {fileID: 464873393369381453, guid: 3f337cc59b3f36e478d488e0ea44c600, type: 3}
+      propertyPath: jumpForce
+      value: 10
+      objectReference: {fileID: 0}
+    - target: {fileID: 464873393369381453, guid: 3f337cc59b3f36e478d488e0ea44c600, type: 3}
+      propertyPath: moveSpeed
+      value: 10
+      objectReference: {fileID: 0}
+    - target: {fileID: 464873393369381453, guid: 3f337cc59b3f36e478d488e0ea44c600, type: 3}
+      propertyPath: airControl
+      value: 10
+      objectReference: {fileID: 0}
+    - target: {fileID: 464873393369381453, guid: 3f337cc59b3f36e478d488e0ea44c600, type: 3}
+      propertyPath: heightStart
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 464873393369381453, guid: 3f337cc59b3f36e478d488e0ea44c600, type: 3}
+      propertyPath: maxBhopSpeed
+      value: 50
+      objectReference: {fileID: 0}
+    - target: {fileID: 464873393369381453, guid: 3f337cc59b3f36e478d488e0ea44c600, type: 3}
       propertyPath: freeLookCamera
       value: 
       objectReference: {fileID: 196375711}
@@ -4189,6 +4136,14 @@ PrefabInstance:
       propertyPath: backgroundAudio
       value: 
       objectReference: {fileID: 765770007}
+    - target: {fileID: 464873393369381453, guid: 3f337cc59b3f36e478d488e0ea44c600, type: 3}
+      propertyPath: airStrafeMaxSpeed
+      value: 30
+      objectReference: {fileID: 0}
+    - target: {fileID: 464873393369381453, guid: 3f337cc59b3f36e478d488e0ea44c600, type: 3}
+      propertyPath: airStrafeAcceleration
+      value: 35
+      objectReference: {fileID: 0}
     - target: {fileID: 464873393369381453, guid: 3f337cc59b3f36e478d488e0ea44c600, type: 3}
       propertyPath: attackCameraController
       value: 
@@ -4269,7 +4224,6 @@ SceneRoots:
   - {fileID: 237348726}
   - {fileID: 150582295}
   - {fileID: 1113089441}
-  - {fileID: 1807927638}
   - {fileID: 1192827599}
   - {fileID: 1702207542}
   - {fileID: 2126644513}
