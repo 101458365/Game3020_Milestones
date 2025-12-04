@@ -29,14 +29,16 @@ public class PlayerControls : MonoBehaviour
     [SerializeField] private AttackCameraController attackCameraController;
 
     [Header("Camera Shake - 130 BPM During Attack")]
-    [SerializeField] private float shakeIntensity = 0.1f;
+    [SerializeField] private float shakeIntensity = 0.5f;
     [SerializeField] private float bpm = 130f;
     private float beatInterval;
     private bool isShaking = false;
+    private CinemachineBasicMultiChannelPerlin noiseComponent;
 
     [Header("Combat Settings")]
     [SerializeField] private float attackRange = 2f;
     [SerializeField] private float attackCooldown = 1f;
+    [SerializeField] private float landingAttackDelay = 0.3f;
     [SerializeField] private GameObject[] attackEffects;
     [SerializeField] private AudioClip attackSound;
     [SerializeField] private AudioSource audioSource;
@@ -55,6 +57,7 @@ public class PlayerControls : MonoBehaviour
     [SerializeField] private float groundCheckDistance = 1.1f;
     [SerializeField] private LayerMask groundLayer = 1;
     private float lastLandTime = 0f;
+    private float timeSinceLanded = 0f;
 
     [Header("Wall Running")]
     [SerializeField] private LayerMask whatIsWallrunnable = -1;
@@ -121,11 +124,23 @@ public class PlayerControls : MonoBehaviour
         animator = GetComponent<Animator>();
         cachedTransform = transform;
 
-        // cache camera transform;
+        // cache camera and get noise component;
         if (freeLookCamera != null)
         {
             cameraTransform = freeLookCamera.transform;
             originalCameraLocalPos = cameraTransform.localPosition;
+            noiseComponent = freeLookCamera.GetComponent<CinemachineBasicMultiChannelPerlin>();
+
+            if (noiseComponent == null)
+            {
+                Debug.LogWarning("CinemachineBasicMultiChannelPerlin not found! Add it to your Cinemachine Camera for camera shake.");
+            }
+        }
+
+        if (noiseComponent != null)
+        {
+            noiseComponent.AmplitudeGain = 0f;
+            noiseComponent.FrequencyGain = 0f;
         }
 
         // calculate beat interval for 130 BPM;
@@ -149,8 +164,11 @@ public class PlayerControls : MonoBehaviour
         currentBhopSpeed = moveSpeed;
         blockedDirections = new Vector3[blockCheckRayCount];
 
-        Cursor.visible = false;
-        Cursor.lockState = CursorLockMode.Locked;
+       if (Cursor.visible == true)
+        {
+            Cursor.visible = false;
+            Cursor.lockState = CursorLockMode.Locked;
+        }
     }
 
     void Update()
@@ -196,6 +214,16 @@ public class PlayerControls : MonoBehaviour
         if (isGrounded && moveInput.magnitude < 0.1f)
         {
             currentBhopSpeed = Mathf.Lerp(currentBhopSpeed, moveSpeed, Time.deltaTime * 2f);
+        }
+
+        // track time since landing;
+        if (isGrounded)
+        {
+            timeSinceLanded += Time.deltaTime;
+        }
+        else
+        {
+            timeSinceLanded = 0f;
         }
     }
 
@@ -610,6 +638,13 @@ public class PlayerControls : MonoBehaviour
     {
         if (isGrounded == true)
         {
+            // prevent attacking immediately after landing;
+            if (timeSinceLanded < landingAttackDelay)
+            {
+                Debug.Log($"Can't attack yet! Wait {landingAttackDelay - timeSinceLanded:F2}s after landing");
+                return;
+            }
+
             if (Time.time < lastAttackTime + attackCooldown)
                 return;
 
@@ -705,7 +740,7 @@ public class PlayerControls : MonoBehaviour
 
     private IEnumerator CameraShakeDuringAttack()
     {
-        if (cameraTransform == null) yield break;
+        if (noiseComponent == null) yield break;
 
         isShaking = true;
         float attackDuration = 4f; // matches attack duration;
@@ -714,7 +749,7 @@ public class PlayerControls : MonoBehaviour
 
         while (elapsed < attackDuration && isShaking)
         {
-            // shake on each beat;
+            // pulse shake intensity on each beat;
             if (elapsed >= nextBeatTime)
             {
                 StartCoroutine(SingleBeatShake());
@@ -725,10 +760,11 @@ public class PlayerControls : MonoBehaviour
             yield return null;
         }
 
-        // ensure camera returns to original position;
-        if (cameraTransform != null)
+        // reset shake to 0;
+        if (noiseComponent != null)
         {
-            cameraTransform.localPosition = originalCameraLocalPos;
+            noiseComponent.AmplitudeGain = 0f;
+            noiseComponent.FrequencyGain = 0f;
         }
 
         isShaking = false;
@@ -736,25 +772,20 @@ public class PlayerControls : MonoBehaviour
 
     private IEnumerator SingleBeatShake()
     {
-        if (cameraTransform == null) yield break;
+        if (noiseComponent == null) yield break;
 
-        float elapsed = 0f;
-        float shakeDuration = 0.1f; // quick shake per beat;
+        // pulse the shake on beat;
+        noiseComponent.AmplitudeGain = shakeIntensity;
+        noiseComponent.FrequencyGain = 1f;
 
-        while (elapsed < shakeDuration)
+        yield return new WaitForSeconds(0.1f); // quick pulse;
+
+        // reduce shake;
+        if (noiseComponent != null)
         {
-            // random offset for shake;
-            float offsetX = Random.Range(-1f, 1f) * shakeIntensity;
-            float offsetY = Random.Range(-1f, 1f) * shakeIntensity;
-
-            cameraTransform.localPosition = originalCameraLocalPos + new Vector3(offsetX, offsetY, 0f);
-
-            elapsed += Time.deltaTime;
-            yield return null;
+            noiseComponent.AmplitudeGain = shakeIntensity * 0.3f;
+            noiseComponent.FrequencyGain = 0.5f;
         }
-
-        // reset to original position;
-        cameraTransform.localPosition = originalCameraLocalPos;
     }
 
     void OnTriggerEnter(Collider other)

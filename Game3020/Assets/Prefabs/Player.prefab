@@ -184,6 +184,7 @@ MonoBehaviour:
   moveSpeed: 15
   jumpForce: 10
   rotationSpeed: 270
+  sidewaysSpeedMultiplier: 0.3
   airStrafeAcceleration: 15
   airStrafeMaxSpeed: 100
   airControl: 1000
@@ -195,8 +196,11 @@ MonoBehaviour:
   coyoteTime: 0.15
   freeLookCamera: {fileID: 0}
   attackCameraController: {fileID: 0}
+  shakeIntensity: 0.5
+  bpm: 130
   attackRange: 0
   attackCooldown: 3.5
+  landingAttackDelay: 1
   attackEffects:
   - {fileID: 4251143904839232136, guid: e09571f065fb5ca4180032b4fb31b978, type: 3}
   attackSound: {fileID: 8300000, guid: 5cefe8859d07460488e7f8dc785c2560, type: 3}

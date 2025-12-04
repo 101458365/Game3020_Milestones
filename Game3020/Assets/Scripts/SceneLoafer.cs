@@ -10,12 +10,6 @@ public class SceneLoafer : MonoBehaviour
         Time.timeScale = 1f;
     }
 
-    private void Start()
-    {
-        Cursor.visible = true;
-        Cursor.lockState = CursorLockMode.None;
-    }
-
     public void LoadGameScene(int index)
     {
         sceneIndex = index;
